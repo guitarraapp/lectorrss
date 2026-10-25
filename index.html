@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mi Lector RSS - v0.4</title>
+<title>Mi Lector RSS - v0.5</title>
 <style>
   :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; }
   @media (prefers-color-scheme: dark) {
@@ -12,18 +12,16 @@
   * { box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
   
-  /* Cabecera */
   header { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; height:52px; }
   header h1 { font-size:16px; margin:0; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
   button { padding:8px 12px; border:none; border-radius:8px; background:var(--accent); color:#fff; font-size:13px; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; }
   button.secondary { background:transparent; color:var(--accent); border:1px solid var(--border); }
   button.icon { padding:8px; background:transparent; color:var(--text); border:none; font-size:18px; }
+  button.danger { background:var(--danger); color:#fff; }
   button:disabled { opacity:.5; cursor:not-allowed; }
   
-  /* Layout principal */
   main { flex:1; display:flex; position:relative; overflow:hidden; }
   
-  /* Drawer (Menú lateral) */
   #drawer { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--panel); z-index:100; transition:left 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; border-right:1px solid var(--border); box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
   #drawer.open { left:0; }
   .drawer-header { padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
@@ -31,31 +29,31 @@
   .drawer-content { flex:1; overflow-y:auto; padding:8px; }
   .drawer-footer { padding:16px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
   
-  /* Overlay oscuro al abrir el menú */
   #overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99; opacity:0; pointer-events:none; transition:opacity 0.3s; }
   #overlay.show { opacity:1; pointer-events:auto; }
   
-  /* Lista de fuentes dentro del Drawer */
   .category-title { font-size:11px; text-transform:uppercase; color:var(--muted); margin:16px 8px 6px; letter-spacing:.5px; display:flex; align-items:center; gap:4px; cursor:pointer; }
   .source-item { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:8px; cursor:pointer; font-size:14px; color:var(--text); }
   .source-item:hover, .source-item.active { background:var(--bg); }
   .source-item .count { margin-left:auto; font-size:11px; background:var(--unread); color:#fff; border-radius:10px; padding:2px 8px; font-weight:600; }
+  .source-item .edit-btn { margin-left:4px; font-size:16px; color:var(--muted); opacity:0; padding:4px; }
+  .source-item:hover .edit-btn { opacity:1; }
+  @media(max-width:900px) { .source-item .edit-btn { opacity:1; } } /* En móvil siempre visible */
   
-  /* Columna Lista (Artículos) */
   #list-container { flex:1; overflow-y:auto; background:var(--bg); width:100%; max-width: 100%; }
   @media(min-width:900px) { #list-container { max-width: 450px; border-right: 1px solid var(--border); } }
   
-  .article { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--panel); display:flex; gap:12px; }
+  .article { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--panel); display:flex; gap:12px; position:relative; }
   .article:hover { background:var(--bg); }
   .article.unread { border-left:4px solid var(--unread); }
   .article.read { opacity:.65; }
   .article .thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--bg); }
   .article .body { flex:1; min-width:0; }
-  .article .title { font-size:15px; font-weight:600; margin-bottom:6px; line-height:1.3; }
+  .article .title { font-size:15px; font-weight:600; margin-bottom:6px; line-height:1.3; padding-right: 24px; }
   .article .meta { font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
   .article .snippet { font-size:13px; color:var(--muted); margin-top:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .article .delete-btn { position:absolute; top:14px; right:14px; color:var(--danger); background:none; border:none; font-size:18px; padding:0; cursor:pointer; }
   
-  /* Columna Lector */
   #reader-container { display:none; flex:1; background:var(--panel); overflow-y:auto; flex-direction:column; }
   @media(min-width:900px) { 
     #list-container { display:block !important; } 
@@ -74,23 +72,22 @@
   .reader-body img { max-width:100%; height:auto; border-radius:8px; margin:12px 0; }
   .reader-body a { color:var(--accent); }
   
-  /* Modo Lectura en Móvil */
   @media(max-width:899px) {
     body.reading #list-container { display:none; }
     body.reading #reader-container { display:flex; }
-    body.reading header { display:none; } /* Ocultamos la cabecera principal */
+    body.reading header { display:none; }
     #drawer { width:85vw; left:-85vw; }
   }
 
-  /* Modales */
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
   .modal-overlay.show { display:flex; }
   .modal { background:var(--panel); border-radius:12px; padding:20px; width:min(520px,100%); max-height:85vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,.3); }
   .modal h3 { margin:0 0 12px; font-size:18px; }
   .modal p { font-size:14px; color:var(--muted); line-height:1.5; }
-  .modal input, .modal textarea { width:100%; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; margin:8px 0 16px; background:var(--bg); color:var(--text); font-family:inherit; }
+  .modal label { display:block; font-size:13px; font-weight:600; margin-bottom:4px; margin-top:12px; }
+  .modal input, .modal textarea, .modal select { width:100%; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; margin-bottom:16px; background:var(--bg); color:var(--text); font-family:inherit; }
   .modal textarea { min-height:120px; resize:vertical; }
-  .modal .actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+  .modal .actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:12px; }
   .idea { padding:12px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size:14px; }
   .idea.done { opacity:.6; }
   .idea .text { white-space:pre-wrap; line-height:1.4; margin-bottom:8px; }
@@ -103,40 +100,36 @@
 </head>
 <body>
 
-<!-- Cabecera Principal -->
 <header>
   <button class="icon" onclick="toggleDrawer()">☰</button>
   <h1 id="currentViewTitle">Todas</h1>
+  <button class="icon" onclick="markAllRead()" title="Marcar todo leído">✓</button>
   <button class="icon" onclick="loadData()" title="Recargar">⟳</button>
 </header>
 
 <main>
-  <!-- Lista de Artículos -->
   <section id="list-container"></section>
   
-  <!-- Lector de Artículo -->
   <section id="reader-container">
     <div class="reader-header">
       <button class="icon" onclick="closeArticle()">←</button>
       <div class="title" id="readerHeaderTitle"></div>
-      <button class="icon" id="readerSaveBtn">💾</button>
+      <button class="icon" id="readerSaveBtn" title="Guardar/Quitar">💾</button>
+      <button class="icon" id="readerUnreadBtn" title="Marcar no leído">↺</button>
     </div>
     <div class="reader-content" id="readerContent"></div>
   </section>
 </main>
 
-<!-- Menú Lateral (Drawer) -->
 <div id="overlay" onclick="toggleDrawer()"></div>
 <div id="drawer">
   <div class="drawer-header">
     <h2>📰 Mi Lector</h2>
     <button class="icon" onclick="toggleDrawer()">✕</button>
   </div>
-  <div class="drawer-content" id="drawerSources">
-    <!-- Las fuentes se cargan aquí por JS -->
-  </div>
+  <div class="drawer-content" id="drawerSources"></div>
   <div class="drawer-footer">
-    <button class="secondary" onclick="document.getElementById('addModal').classList.add('show'); toggleDrawer();">+ Añadir Fuente</button>
+    <button class="secondary" onclick="openAddModal(); toggleDrawer();">+ Añadir Fuente</button>
     <div style="display:flex; gap:8px;">
       <button class="secondary" style="flex:1" onclick="exportBackup()">📤 Exportar</button>
       <button class="secondary" style="flex:1" onclick="document.getElementById('importFile').click()">📥 Importar</button>
@@ -146,10 +139,9 @@
   </div>
 </div>
 
-<!-- Estado / Pie de página -->
 <div id="status">
   <span id="statusText">Cargando…</span>
-  <span class="version-tag">v0.4</span>
+  <span class="version-tag">v0.5</span>
 </div>
 
 <!-- Modales -->
@@ -157,11 +149,30 @@
   <div class="modal">
     <h3>Añadir fuente local</h3>
     <p>Se guarda <strong>solo en este navegador</strong>.</p>
+    <label>URL del Feed</label>
     <input id="newSourceUrl" type="url" placeholder="https://ejemplo.com/feed.xml">
-    <input id="newSourceCategory" type="text" placeholder="Categoría (ej. Tecnología)" value="General">
+    <label>Título</label>
+    <input id="newSourceTitle" type="text" placeholder="Ej. Mi Blog Favorito">
+    <label>Categoría</label>
+    <input id="newSourceCategory" type="text" placeholder="Ej. Tecnología" value="General">
     <div class="actions">
       <button class="secondary" onclick="document.getElementById('addModal').classList.remove('show')">Cancelar</button>
       <button onclick="confirmAddSource()">Añadir</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editSourceModal">
+  <div class="modal">
+    <h3>Editar fuente</h3>
+    <label>Título</label>
+    <input id="editSourceTitle" type="text">
+    <label>Categoría</label>
+    <input id="editSourceCategory" type="text">
+    <input type="hidden" id="editSourceUrl">
+    <div class="actions" style="justify-content:space-between;">
+      <button class="danger" id="deleteSourceBtn">Eliminar fuente</button>
+      <button onclick="saveEditSource()">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -261,9 +272,14 @@ function renderSources() {
     if (!isCollapsed) {
       cats[cat].forEach(s => {
         const unread = state.articles.filter(a => a.sourceUrl === s.url && !state.read.has(a.id)).length;
+        const isLocal = state.localSources.some(ls => ls.url === s.url);
         const div = document.createElement('div');
         div.className = 'source-item' + (state.viewMode === s.url ? ' active' : '');
-        div.innerHTML = `<span style="margin-left:12px">📡 ${escapeHtml(s.title || s.url)}</span>${unread ? `<span class="count">${unread}</span>` : ''}`;
+        div.innerHTML = `
+          <span style="margin-left:12px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📡 ${escapeHtml(s.title || s.url)}</span>
+          ${unread ? `<span class="count">${unread}</span>` : ''}
+          ${isLocal ? `<button class="edit-btn" onclick="event.stopPropagation(); openEditSource('${escapeHtml(s.url)}')">⚙️</button>` : ''}
+        `;
         div.onclick = () => { state.viewMode = s.url; updateViewTitle(); renderSources(); renderList(); toggleDrawer(); closeArticle(); };
         $drawerSources.appendChild(div);
       });
@@ -296,6 +312,8 @@ function renderList() {
     const read = state.read.has(a.id);
     const thumb = firstImage(a.content);
     const isSaved = state.saved.has(a.id);
+    const isSavedView = state.viewMode === 'saved';
+    
     const el = document.createElement('div');
     el.className = 'article ' + (read ? 'read' : 'unread');
     el.innerHTML = `
@@ -304,7 +322,9 @@ function renderList() {
         <div class="title">${isSaved ? '💾 ' : ''}${escapeHtml(a.title)}</div>
         <div class="meta"><span>${escapeHtml(sourceTitle(a.sourceUrl))}</span><span>${formatDate(a.date)}</span></div>
         <div class="snippet">${escapeHtml(a.snippet)}</div>
-      </div>`;
+      </div>
+      ${isSavedView ? `<button class="delete-btn" onclick="event.stopPropagation(); removeSaved('${escapeHtml(a.id)}')">🗑️</button>` : ''}
+    `;
     el.onclick = () => openArticle(a);
     $list.appendChild(el);
   });
@@ -324,12 +344,20 @@ function openArticle(a) {
 
   document.getElementById('readerHeaderTitle').textContent = a.title;
   
-  const $btn = document.getElementById('readerSaveBtn');
-  $btn.textContent = isSaved ? '💾' : '📥';
-  $btn.onclick = async () => {
+  const $saveBtn = document.getElementById('readerSaveBtn');
+  $saveBtn.textContent = isSaved ? '🗑️' : '💾';
+  $saveBtn.onclick = async () => {
     if (state.saved.has(a.id)) { await dbDelete(a.id); state.saved.delete(a.id); setStatus('Eliminado de guardados.', 'ok'); }
-    else { const toSave = { ...a, sourceTitle: sourceTitle(a.sourceUrl), savedAt: new Date().toISOString() }; await dbPut(toSave); state.saved.set(a.id, toSave); setStatus('Guardado en el dispositivo.', 'ok'); }
+    else { const toSave = { ...a, sourceTitle: sourceTitle(a.sourceUrl), savedAt: new Date().toISOString() }; await dbPut(toSave); state.saved.set(a.id, toSave); setStatus('Guardado.', 'ok'); }
     renderSources(); renderList(); openArticle(a);
+  };
+
+  document.getElementById('readerUnreadBtn').onclick = () => {
+    state.read.delete(a.id);
+    localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
+    setStatus('Marcado como no leído.', 'ok');
+    renderSources(); renderList();
+    closeArticle();
   };
 
   $readerContent.innerHTML = `
@@ -343,9 +371,7 @@ function openArticle(a) {
   document.getElementById('reader-container').scrollTop = 0;
 }
 
-function closeArticle() {
-  document.body.classList.remove('reading');
-}
+function closeArticle() { document.body.classList.remove('reading'); }
 
 function sanitizeHtml(html) {
   const allowed = new Set(['P','BR','A','STRONG','EM','B','I','U','UL','OL','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE','IMG','FIGURE','FIGCAPTION','CODE','PRE','HR','SPAN','DIV','TABLE','THEAD','TBODY','TR','TD','TH']);
@@ -359,6 +385,94 @@ function sanitizeHtml(html) {
   }); };
   walk(tpl.content); return tpl.innerHTML;
 }
+
+window.markAllRead = () => {
+  let items = state.viewMode === 'saved' ? [...state.saved.values()] : state.articles;
+  if (state.viewMode !== 'all' && state.viewMode !== 'saved') items = items.filter(a => a.sourceUrl === state.viewMode);
+  items.forEach(a => state.read.add(a.id));
+  localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
+  setStatus('Todos marcados como leídos.', 'ok');
+  renderSources(); renderList();
+};
+
+window.removeSaved = async (id) => {
+  if (!confirm('¿Eliminar este artículo de guardados?')) return;
+  await dbDelete(id);
+  state.saved.delete(id);
+  setStatus('Artículo eliminado.', 'ok');
+  renderSources(); renderList();
+};
+
+window.openAddModal = () => {
+  document.getElementById('newSourceUrl').value = '';
+  document.getElementById('newSourceTitle').value = '';
+  document.getElementById('newSourceCategory').value = 'General';
+  document.getElementById('addModal').classList.add('show');
+};
+
+window.confirmAddSource = () => {
+  const url = document.getElementById('newSourceUrl').value.trim();
+  const title = document.getElementById('newSourceTitle').value.trim() || new URL(url).hostname;
+  const category = document.getElementById('newSourceCategory').value.trim() || 'General';
+  if (!url) return;
+  state.localSources.push({ url, title, category });
+  localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+  document.getElementById('addModal').classList.remove('show');
+  setStatus(`Fuente "${title}" añadida.`, 'ok');
+  renderSources();
+};
+
+window.openEditSource = (url) => {
+  const s = state.localSources.find(x => x.url === url);
+  if (!s) return;
+  document.getElementById('editSourceUrl').value = s.url;
+  document.getElementById('editSourceTitle').value = s.title;
+  document.getElementById('editSourceCategory').value = s.category || 'General';
+  document.getElementById('deleteSourceBtn').onclick = () => {
+    if (!confirm('¿Eliminar esta fuente local?')) return;
+    state.localSources = state.localSources.filter(x => x.url !== url);
+    localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+    if (state.viewMode === url) state.viewMode = 'all';
+    document.getElementById('editSourceModal').classList.remove('show');
+    setStatus('Fuente eliminada.', 'ok');
+    updateViewTitle(); renderSources(); renderList();
+  };
+  document.getElementById('editSourceModal').classList.add('show');
+};
+
+window.saveEditSource = () => {
+  const url = document.getElementById('editSourceUrl').value;
+  const s = state.localSources.find(x => x.url === url);
+  if (!s) return;
+  s.title = document.getElementById('editSourceTitle').value.trim() || s.title;
+  s.category = document.getElementById('editSourceCategory').value.trim() || 'General';
+  localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+  document.getElementById('editSourceModal').classList.remove('show');
+  setStatus('Fuente actualizada.', 'ok');
+  updateViewTitle(); renderSources(); renderList();
+};
+
+window.exportBackup = async () => {
+  const arr = await dbGetAll();
+  if (!arr.length) { setStatus('No hay guardados.', 'error'); return; }
+  const blob = new Blob([JSON.stringify({ version: 1, savedAt: new Date().toISOString(), articles: arr }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `mi_lector_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(url);
+  setStatus(`Exportados ${arr.length} artículos.`, 'ok');
+};
+
+document.getElementById('importFile').onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await file.text(); const data = JSON.parse(text);
+    const arr = Array.isArray(data) ? data : (data.articles || []);
+    if (!arr.length) { setStatus('Archivo vacío.', 'error'); return; }
+    for (const art of arr) { if (art.id) await dbPut(art); }
+    const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x]));
+    setStatus(`Importados ${arr.length} artículos.`, 'ok'); renderSources(); renderList();
+  } catch (e) { setStatus('Error importando.', 'error'); }
+  e.target.value = '';
+};
 
 async function loadData() {
   setStatus('Cargando datos…');
@@ -387,41 +501,6 @@ async function loadData() {
   renderSources(); renderList();
 }
 
-window.confirmAddSource = () => {
-  const url = document.getElementById('newSourceUrl').value.trim();
-  const category = document.getElementById('newSourceCategory').value.trim() || 'General';
-  if (!url) return;
-  const title = new URL(url).hostname;
-  state.localSources.push({ url, title, category });
-  localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
-  document.getElementById('addModal').classList.remove('show');
-  document.getElementById('newSourceUrl').value = '';
-  setStatus(`Fuente local añadida.`, 'ok');
-  renderSources();
-};
-
-window.exportBackup = async () => {
-  const arr = await dbGetAll();
-  if (!arr.length) { setStatus('No hay guardados.', 'error'); return; }
-  const blob = new Blob([JSON.stringify({ version: 1, savedAt: new Date().toISOString(), articles: arr }, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `mi_lector_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(url);
-  setStatus(`Exportados ${arr.length} artículos.`, 'ok');
-};
-
-document.getElementById('importFile').onchange = async (e) => {
-  const file = e.target.files[0]; if (!file) return;
-  try {
-    const text = await file.text(); const data = JSON.parse(text);
-    const arr = Array.isArray(data) ? data : (data.articles || []);
-    if (!arr.length) { setStatus('Archivo vacío.', 'error'); return; }
-    for (const art of arr) { if (art.id) await dbPut(art); }
-    const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x]));
-    setStatus(`Importados ${arr.length} artículos.`, 'ok'); renderSources(); renderList();
-  } catch (e) { setStatus('Error importando.', 'error'); }
-  e.target.value = '';
-};
-
 function getIdeas() { try { return JSON.parse(localStorage.getItem(LS_IDEAS) || '[]'); } catch { return []; } }
 function setIdeas(arr) { localStorage.setItem(LS_IDEAS, JSON.stringify(arr)); }
 window.saveIdea = () => { const text = document.getElementById('ideaText').value.trim(); if (!text) return; const ideas = getIdeas(); ideas.push({ id: 'i' + Date.now(), text, done: false, createdAt: new Date().toISOString() }); setIdeas(ideas); document.getElementById('ideaText').value = ''; renderIdeas(); };
@@ -438,7 +517,6 @@ function renderIdeas() {
     cont.appendChild(div);
   });
 }
-document.getElementById('ideasModal').addEventListener('transitionend', () => { if(!document.getElementById('ideasModal').classList.contains('show')) return; });
 
 (async () => {
   try { await openDB(); await loadData(); } catch (e) { setStatus('Error: ' + e.message, 'error'); }
