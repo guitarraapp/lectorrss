@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
+const { Readability } = require('@mozilla/readability');
 
 // 👇 EDITA ESTA LISTA con las fuentes que quieras
 const SOURCES = [
@@ -9,7 +11,7 @@ const SOURCES = [
   { url: 'https://www.microsiervos.com/index.xml', title: 'Microsiervos' },
 ];
 
-const MAX_ARTICLES_PER_SOURCE = 20; // límite para no tardar demasiado
+const MAX_ARTICLES_PER_SOURCE = 20;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 
 function stripHtml(html) {
@@ -51,52 +53,39 @@ function parseXml(xmlText, sourceUrl) {
   return items;
 }
 
-/* Extrae el cuerpo principal de una página HTML con un truco muy simple:
-   busca el <article>, <main>, o el <div> con más <p> dentro. */
-async function extractFullContent(url) {
+/* Extracción con Mozilla Readability: elimina publicidad, menús, sidebars */
+async function extractWithReadability(url) {
   try {
     const res = await fetch(url, { headers: { 'User-Agent': UA } });
     if (!res.ok) return null;
     const html = await res.text();
 
-    // Buscar el bloque <article> o <main> más grande
-    const candidates = [];
-    const articleRegex = /<(article|main)[^>]*>([\s\S]*?)<\/\1>/gi;
-    let m;
-    while ((m = articleRegex.exec(html)) !== null) candidates.push(m[2]);
-    if (!candidates.length) {
-      const divRegex = /<div[^>]*class="[^"]*(?:content|post|entry|article)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-      while ((m = divRegex.exec(html)) !== null) candidates.push(m[1]);
-    }
-    if (!candidates.length) return null;
-
-    // Elegir el candidato con más párrafos
-    let best = '';
-    let bestCount = 0;
-    for (const c of candidates) {
-      const count = (c.match(/<p[\s>]/g) || []).length;
-      if (count > bestCount) { bestCount = count; best = c; }
-    }
-    if (bestCount < 2) return null;
-
-    // Limpiar scripts, styles, navs, etc.
-    let clean = best
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<aside[\s\S]*?<\/aside>/gi, '')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-      .replace(/<form[\s\S]*?<\/form>/gi, '')
-      .replace(/ on\w+="[^"]*"/gi, '')
-      .replace(/ on\w+='[^']*'/gi, '');
+    const dom = new JSDOM(html, { url });
+    const reader = new Readability(dom.window.document, {
+      charThreshold: 100,
+      keepClasses: false,
+    });
+    const article = reader.parse();
+    if (!article || !article.content) return null;
 
     // Arreglar imágenes relativas
     const base = new URL(url);
-    clean = clean.replace(/<img([^>]*?)src="([^"]+)"/gi, (match, pre, src) => {
-      try { return `<img${pre}src="${new URL(src, base).href}"`; } catch { return match; }
-    });
+    let cleaned = article.content.replace(
+      /<img([^>]*?)src="([^"]+)"/gi,
+      (match, pre, src) => {
+        try { return `<img${pre}src="${new URL(src, base).href}"`; }
+        catch { return match; }
+      }
+    );
 
-    return clean.trim();
+    // Eliminar píxeles de tracking y atributos peligrosos
+    cleaned = cleaned
+      .replace(/<img[^>]*width=["']?1["']?[^>]*>/gi, '')
+      .replace(/<img[^>]*height=["']?1["']?[^>]*>/gi, '')
+      .replace(/ on\w+="[^"]*"/gi, '')
+      .replace(/ on\w+='[^']*'/gi, '');
+
+    return cleaned.trim();
   } catch (e) {
     return null;
   }
@@ -115,12 +104,11 @@ async function main() {
       items = items.slice(0, MAX_ARTICLES_PER_SOURCE);
       console.log(`  ${items.length} artículos`);
 
-      // Extraer contenido completo de cada artículo
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         if (!it.link) continue;
         process.stdout.write(`  [${i + 1}/${items.length}] ${it.title.slice(0, 40)}… `);
-        const full = await extractFullContent(it.link);
+        const full = await extractWithReadability(it.link);
         if (full) { it.content = full; process.stdout.write('✓\n'); }
         else process.stdout.write('(sin extracto)\n');
       }
