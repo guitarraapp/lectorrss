@@ -2,95 +2,162 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mi Lector RSS - v0.3.1</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mi Lector RSS - v0.4</title>
 <style>
   :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#1c1c1e; --panel:#2c2c2e; --border:#3a3a3c; --text:#f2f2f7; --muted:#8e8e93; --accent:#0a84ff; }
   }
-  * { box-sizing:border-box; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
-  header { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--border); flex-wrap:wrap; position:sticky; top:0; z-index:20; }
-  header h1 { font-size:15px; margin:0; flex:1; min-width:120px; }
-  button { padding:7px 11px; border:none; border-radius:8px; background:var(--accent); color:#fff; font-size:12px; cursor:pointer; white-space:nowrap; }
+  
+  /* Cabecera */
+  header { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; height:52px; }
+  header h1 { font-size:16px; margin:0; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
+  button { padding:8px 12px; border:none; border-radius:8px; background:var(--accent); color:#fff; font-size:13px; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; }
   button.secondary { background:transparent; color:var(--accent); border:1px solid var(--border); }
+  button.icon { padding:8px; background:transparent; color:var(--text); border:none; font-size:18px; }
   button:disabled { opacity:.5; cursor:not-allowed; }
-  main { flex:1; display:grid; grid-template-columns:240px 1fr 1fr; overflow:hidden; }
-  @media(max-width:900px){ main{ grid-template-columns:1fr; grid-template-rows:auto 1fr; } #reader{ display:none; } body.reading #list{ display:none; } body.reading #reader{ display:block; } }
-  #sources { background:var(--panel); border-right:1px solid var(--border); overflow-y:auto; padding:8px; }
-  .category-title { font-size:11px; text-transform:uppercase; color:var(--muted); margin:16px 8px 6px; letter-spacing:.5px; display:flex; align-items:center; gap:4px; cursor:pointer; user-select:none; }
-  .category-title:hover { color:var(--text); }
-  .source-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13px; }
-  .source-item:hover { background:var(--bg); }
-  .source-item.active { background:rgba(10,132,255,.15); color:var(--accent); }
-  .source-item .count { margin-left:auto; font-size:11px; background:var(--unread); color:#fff; border-radius:10px; padding:1px 7px; min-width:18px; text-align:center; }
-  #list { overflow-y:auto; background:var(--bg); }
-  .article { padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--panel); display:flex; gap:10px; }
+  
+  /* Layout principal */
+  main { flex:1; display:flex; position:relative; overflow:hidden; }
+  
+  /* Drawer (Menú lateral) */
+  #drawer { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--panel); z-index:100; transition:left 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; border-right:1px solid var(--border); box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+  #drawer.open { left:0; }
+  .drawer-header { padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .drawer-header h2 { margin:0; font-size:18px; }
+  .drawer-content { flex:1; overflow-y:auto; padding:8px; }
+  .drawer-footer { padding:16px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
+  
+  /* Overlay oscuro al abrir el menú */
+  #overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99; opacity:0; pointer-events:none; transition:opacity 0.3s; }
+  #overlay.show { opacity:1; pointer-events:auto; }
+  
+  /* Lista de fuentes dentro del Drawer */
+  .category-title { font-size:11px; text-transform:uppercase; color:var(--muted); margin:16px 8px 6px; letter-spacing:.5px; display:flex; align-items:center; gap:4px; cursor:pointer; }
+  .source-item { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:8px; cursor:pointer; font-size:14px; color:var(--text); }
+  .source-item:hover, .source-item.active { background:var(--bg); }
+  .source-item .count { margin-left:auto; font-size:11px; background:var(--unread); color:#fff; border-radius:10px; padding:2px 8px; font-weight:600; }
+  
+  /* Columna Lista (Artículos) */
+  #list-container { flex:1; overflow-y:auto; background:var(--bg); width:100%; max-width: 100%; }
+  @media(min-width:900px) { #list-container { max-width: 450px; border-right: 1px solid var(--border); } }
+  
+  .article { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--panel); display:flex; gap:12px; }
   .article:hover { background:var(--bg); }
-  .article.unread { border-left:3px solid var(--unread); }
+  .article.unread { border-left:4px solid var(--unread); }
   .article.read { opacity:.65; }
-  .article .thumb { width:56px; height:56px; border-radius:6px; object-fit:cover; flex-shrink:0; background:var(--bg); }
+  .article .thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--bg); }
   .article .body { flex:1; min-width:0; }
-  .article .title { font-size:14px; font-weight:600; margin-bottom:4px; line-height:1.35; }
-  .article .meta { font-size:11px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
-  .article .snippet { font-size:12px; color:var(--muted); margin-top:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  #reader { background:var(--panel); border-left:1px solid var(--border); overflow-y:auto; padding:0; position:relative; }
-  #reader .placeholder { color:var(--muted); text-align:center; margin-top:40%; font-size:14px; }
-  #reader .reader-content { padding:20px; }
-  #reader .reader-toolbar { display:flex; gap:6px; margin-bottom:12px; }
-  #reader h2 { font-size:19px; margin:0 0 8px; line-height:1.3; }
-  #reader .reader-meta { font-size:12px; color:var(--muted); margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); }
-  #reader .reader-body { font-size:14px; line-height:1.6; }
-  #reader .reader-body img { max-width:100%; height:auto; border-radius:6px; margin:8px 0; }
-  #reader .reader-body a { color:var(--accent); }
-  #status { padding:6px 12px; font-size:11px; color:var(--muted); background:var(--panel); border-top:1px solid var(--border); min-height:26px; display:flex; justify-content:space-between; align-items:center; }
-  #status.error { color:var(--danger); }
-  #status.ok { color:var(--ok); }
-  .version-tag { font-size:10px; color:#ccc; }
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:100; padding:16px; }
+  .article .title { font-size:15px; font-weight:600; margin-bottom:6px; line-height:1.3; }
+  .article .meta { font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
+  .article .snippet { font-size:13px; color:var(--muted); margin-top:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  
+  /* Columna Lector */
+  #reader-container { display:none; flex:1; background:var(--panel); overflow-y:auto; flex-direction:column; }
+  @media(min-width:900px) { 
+    #list-container { display:block !important; } 
+    #reader-container { display:flex !important; } 
+    #reader-container .reader-header { display:none; }
+  }
+  
+  .reader-header { position:sticky; top:0; background:var(--panel); padding:10px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; z-index:10; }
+  .reader-header .title { font-size:15px; font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  
+  .reader-content { padding:20px; max-width:800px; margin:0 auto; width:100%; }
+  .reader-toolbar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .reader-content h2 { font-size:22px; margin:0 0 12px; line-height:1.3; }
+  .reader-meta { font-size:13px; color:var(--muted); margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+  .reader-body { font-size:16px; line-height:1.7; }
+  .reader-body img { max-width:100%; height:auto; border-radius:8px; margin:12px 0; }
+  .reader-body a { color:var(--accent); }
+  
+  /* Modo Lectura en Móvil */
+  @media(max-width:899px) {
+    body.reading #list-container { display:none; }
+    body.reading #reader-container { display:flex; }
+    body.reading header { display:none; } /* Ocultamos la cabecera principal */
+    #drawer { width:85vw; left:-85vw; }
+  }
+
+  /* Modales */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
   .modal-overlay.show { display:flex; }
   .modal { background:var(--panel); border-radius:12px; padding:20px; width:min(520px,100%); max-height:85vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,.3); }
-  .modal h3 { margin:0 0 12px; font-size:16px; }
-  .modal p { font-size:13px; color:var(--muted); line-height:1.5; }
-  .modal input, .modal textarea, .modal select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; margin:8px 0 12px; background:var(--bg); color:var(--text); font-family:inherit; }
-  .modal textarea { min-height:100px; resize:vertical; }
+  .modal h3 { margin:0 0 12px; font-size:18px; }
+  .modal p { font-size:14px; color:var(--muted); line-height:1.5; }
+  .modal input, .modal textarea { width:100%; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; margin:8px 0 16px; background:var(--bg); color:var(--text); font-family:inherit; }
+  .modal textarea { min-height:120px; resize:vertical; }
   .modal .actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
-  .idea { padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size:13px; }
+  .idea { padding:12px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size:14px; }
   .idea.done { opacity:.6; }
-  .idea .text { white-space:pre-wrap; line-height:1.4; margin-bottom:6px; }
-  .idea .idea-actions { display:flex; gap:6px; }
-  .idea .idea-actions button { padding:4px 8px; font-size:11px; }
-  .back-btn { display:none; }
-  @media(max-width:900px){ body.reading .back-btn { display:inline-block; } }
+  .idea .text { white-space:pre-wrap; line-height:1.4; margin-bottom:8px; }
+  .idea .idea-actions { display:flex; gap:8px; }
+  .idea .idea-actions button { padding:6px 10px; font-size:12px; }
+
+  #status { padding:6px 12px; font-size:11px; color:var(--muted); background:var(--panel); border-top:1px solid var(--border); min-height:28px; display:flex; justify-content:space-between; align-items:center; }
+  .version-tag { font-size:10px; color:#ccc; }
 </style>
 </head>
 <body>
+
+<!-- Cabecera Principal -->
 <header>
-  <button class="secondary back-btn" onclick="document.body.classList.remove('reading')">←</button>
-  <h1>📰 Mi Lector</h1>
-  <button id="addSourceBtn" class="secondary">+ Fuente</button>
-  <button id="refreshBtn" class="secondary" title="Recargar JSON">⟳</button>
-  <button id="exportBtn" class="secondary" title="Exportar guardados">📤</button>
-  <button id="importBtn" class="secondary" title="Importar guardados">📥</button>
-  <button id="ideasBtn" class="secondary" title="Ideas">💡</button>
-  <input type="file" id="importFile" accept=".json" style="display:none">
+  <button class="icon" onclick="toggleDrawer()">☰</button>
+  <h1 id="currentViewTitle">Todas</h1>
+  <button class="icon" onclick="loadData()" title="Recargar">⟳</button>
 </header>
+
 <main>
-  <aside id="sources"></aside>
-  <section id="list"></section>
-  <section id="reader"><div class="placeholder">Selecciona un artículo</div></section>
+  <!-- Lista de Artículos -->
+  <section id="list-container"></section>
+  
+  <!-- Lector de Artículo -->
+  <section id="reader-container">
+    <div class="reader-header">
+      <button class="icon" onclick="closeArticle()">←</button>
+      <div class="title" id="readerHeaderTitle"></div>
+      <button class="icon" id="readerSaveBtn">💾</button>
+    </div>
+    <div class="reader-content" id="readerContent"></div>
+  </section>
 </main>
-<div id="status">
-  <span id="statusText">Cargando…</span>
-  <span class="version-tag">v0.3.1</span>
+
+<!-- Menú Lateral (Drawer) -->
+<div id="overlay" onclick="toggleDrawer()"></div>
+<div id="drawer">
+  <div class="drawer-header">
+    <h2>📰 Mi Lector</h2>
+    <button class="icon" onclick="toggleDrawer()">✕</button>
+  </div>
+  <div class="drawer-content" id="drawerSources">
+    <!-- Las fuentes se cargan aquí por JS -->
+  </div>
+  <div class="drawer-footer">
+    <button class="secondary" onclick="document.getElementById('addModal').classList.add('show'); toggleDrawer();">+ Añadir Fuente</button>
+    <div style="display:flex; gap:8px;">
+      <button class="secondary" style="flex:1" onclick="exportBackup()">📤 Exportar</button>
+      <button class="secondary" style="flex:1" onclick="document.getElementById('importFile').click()">📥 Importar</button>
+    </div>
+    <button class="secondary" onclick="document.getElementById('ideasModal').classList.add('show'); toggleDrawer();">💡 Ideas de Mejora</button>
+    <input type="file" id="importFile" accept=".json" style="display:none">
+  </div>
 </div>
 
+<!-- Estado / Pie de página -->
+<div id="status">
+  <span id="statusText">Cargando…</span>
+  <span class="version-tag">v0.4</span>
+</div>
+
+<!-- Modales -->
 <div class="modal-overlay" id="addModal">
   <div class="modal">
     <h3>Añadir fuente local</h3>
     <p>Se guarda <strong>solo en este navegador</strong>.</p>
-    <input id="newSourceUrl" type="text" placeholder="https://ejemplo.com/feed.xml">
+    <input id="newSourceUrl" type="url" placeholder="https://ejemplo.com/feed.xml">
     <input id="newSourceCategory" type="text" placeholder="Categoría (ej. Tecnología)" value="General">
     <div class="actions">
       <button class="secondary" onclick="document.getElementById('addModal').classList.remove('show')">Cancelar</button>
@@ -103,9 +170,9 @@
   <div class="modal">
     <h3>💡 Ideas de mejora</h3>
     <textarea id="ideaText" placeholder="Escribe una idea…"></textarea>
-    <div class="actions" style="margin-bottom:12px"><button onclick="saveIdea()">Guardar idea</button></div>
+    <div class="actions" style="margin-bottom:16px"><button onclick="saveIdea()">Guardar idea</button></div>
     <div id="ideasList"></div>
-    <div class="actions" style="margin-top:12px"><button class="secondary" onclick="document.getElementById('ideasModal').classList.remove('show')">Cerrar</button></div>
+    <div class="actions" style="margin-top:16px"><button class="secondary" onclick="document.getElementById('ideasModal').classList.remove('show')">Cerrar</button></div>
   </div>
 </div>
 
@@ -117,6 +184,12 @@ const state = {
   activeArticle: null,
   collapsedCategories: new Set()
 };
+
+const MOCK_SOURCES = [
+  { url: 'https://www.xataka.com/feedburner.xml', title: 'Xataka (Demo)', category: 'Tecnología' },
+  { url: 'https://hnrss.org/frontpage', title: 'Hacker News (Demo)', category: 'Tecnología' },
+  { url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', title: 'El País (Demo)', category: 'Noticias' }
+];
 
 let db = null;
 function openDB() {
@@ -136,10 +209,11 @@ function dbGetAll() { return new Promise((res, rej) => { const tx = db.transacti
 
 const LS_READ = 'rss_read_v1'; const LS_LOCAL_SOURCES = 'rss_local_sources_v1'; const LS_IDEAS = 'rss_ideas_v1';
 
-const $sources = document.getElementById('sources');
-const $list = document.getElementById('list');
-const $reader = document.getElementById('reader');
+const $list = document.getElementById('list-container');
+const $readerContent = document.getElementById('readerContent');
+const $drawerSources = document.getElementById('drawerSources');
 const $statusText = document.getElementById('statusText');
+const $viewTitle = document.getElementById('currentViewTitle');
 
 function setStatus(msg, type='') { $statusText.textContent = msg; $statusText.parentElement.className = type; }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -147,14 +221,20 @@ function sourceTitle(url){ const s=[...state.sources,...state.localSources].find
 function formatDate(iso){ const d=new Date(iso); if(isNaN(d)) return ''; const diff=(Date.now()-d)/60000; if(diff<60) return `hace ${Math.max(1,Math.round(diff))} min`; if(diff<60*24) return `hace ${Math.round(diff/60)} h`; return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'}); }
 function firstImage(html){ if(!html) return null; const m=html.match(/<img[^>]+src="([^"]+)"/i); return m?m[1]:null; }
 
+function toggleDrawer() {
+  document.getElementById('drawer').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('show');
+}
+
 function renderSources() {
-  $sources.innerHTML = '';
+  $drawerSources.innerHTML = '';
+  
   const mkFixed = (label, mode, count) => {
     const div = document.createElement('div');
     div.className = 'source-item' + (state.viewMode === mode ? ' active' : '');
     div.innerHTML = `<span>${label}</span>${count ? `<span class="count">${count}</span>` : ''}`;
-    div.onclick = () => { state.viewMode = mode; renderSources(); renderList(); };
-    $sources.appendChild(div);
+    div.onclick = () => { state.viewMode = mode; updateViewTitle(); renderSources(); renderList(); toggleDrawer(); closeArticle(); };
+    $drawerSources.appendChild(div);
   };
   mkFixed('🗂️ Todas', 'all', state.articles.filter(a => !state.read.has(a.id)).length);
   mkFixed('💾 Guardados', 'saved', state.saved.size);
@@ -176,7 +256,7 @@ function renderSources() {
       else state.collapsedCategories.add(cat);
       renderSources();
     };
-    $sources.appendChild(catHeader);
+    $drawerSources.appendChild(catHeader);
 
     if (!isCollapsed) {
       cats[cat].forEach(s => {
@@ -184,11 +264,17 @@ function renderSources() {
         const div = document.createElement('div');
         div.className = 'source-item' + (state.viewMode === s.url ? ' active' : '');
         div.innerHTML = `<span style="margin-left:12px">📡 ${escapeHtml(s.title || s.url)}</span>${unread ? `<span class="count">${unread}</span>` : ''}`;
-        div.onclick = () => { state.viewMode = s.url; renderSources(); renderList(); };
-        $sources.appendChild(div);
+        div.onclick = () => { state.viewMode = s.url; updateViewTitle(); renderSources(); renderList(); toggleDrawer(); closeArticle(); };
+        $drawerSources.appendChild(div);
       });
     }
   });
+}
+
+function updateViewTitle() {
+  if (state.viewMode === 'all') $viewTitle.textContent = 'Todas las noticias';
+  else if (state.viewMode === 'saved') $viewTitle.textContent = 'Guardados';
+  else $viewTitle.textContent = sourceTitle(state.viewMode);
 }
 
 function renderList() {
@@ -199,7 +285,11 @@ function renderList() {
     if (state.viewMode !== 'all') items = items.filter(a => a.sourceUrl === state.viewMode);
   }
   items = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
-  if (!items.length) { $list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">No hay artículos.</div>'; return; }
+  
+  if (!items.length) { 
+    $list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px;">No hay artículos.</div>'; 
+    return; 
+  }
   
   $list.innerHTML = '';
   items.forEach(a => {
@@ -230,30 +320,31 @@ function openArticle(a) {
   const hasFull = a.content && a.content.length > 500;
   const body = hasFull
     ? sanitizeHtml(a.content)
-    : `<p>${escapeHtml(a.snippet)}</p><p style="color:var(--muted);font-size:13px;">Resumen. <a href="${escapeHtml(a.link)}" target="_blank">Leer original →</a></p>`;
+    : `<p>${escapeHtml(a.snippet)}</p><p style="color:var(--muted);font-size:14px;margin-top:20px;">Este feed solo trae un resumen. <a href="${escapeHtml(a.link)}" target="_blank">Leer original →</a></p>`;
 
-  $reader.innerHTML = `
-    <div class="reader-content">
-      <div class="reader-toolbar">
-        <button class="secondary" id="saveBtn">${isSaved ? '💾 Guardado ✓' : '💾 Guardar'}</button>
-        <a href="${escapeHtml(a.link)}" target="_blank"><button class="secondary">↗ Original</button></a>
-      </div>
-      <h2>${escapeHtml(a.title)}</h2>
-      <div class="reader-meta">${escapeHtml(sourceTitle(a.sourceUrl))} · ${formatDate(a.date)}</div>
-      <div class="reader-body">${body}</div>
-    </div>
-  `;
-  $reader.scrollTop = 0;
-
-  document.getElementById('saveBtn').onclick = async () => {
-    if (state.saved.has(a.id)) {
-      await dbDelete(a.id); state.saved.delete(a.id); setStatus('Eliminado de guardados.', 'ok');
-    } else {
-      const toSave = { ...a, sourceTitle: sourceTitle(a.sourceUrl), savedAt: new Date().toISOString() };
-      await dbPut(toSave); state.saved.set(a.id, toSave); setStatus('Guardado en el dispositivo.', 'ok');
-    }
+  document.getElementById('readerHeaderTitle').textContent = a.title;
+  
+  const $btn = document.getElementById('readerSaveBtn');
+  $btn.textContent = isSaved ? '💾' : '📥';
+  $btn.onclick = async () => {
+    if (state.saved.has(a.id)) { await dbDelete(a.id); state.saved.delete(a.id); setStatus('Eliminado de guardados.', 'ok'); }
+    else { const toSave = { ...a, sourceTitle: sourceTitle(a.sourceUrl), savedAt: new Date().toISOString() }; await dbPut(toSave); state.saved.set(a.id, toSave); setStatus('Guardado en el dispositivo.', 'ok'); }
     renderSources(); renderList(); openArticle(a);
   };
+
+  $readerContent.innerHTML = `
+    <div class="reader-toolbar">
+      <a href="${escapeHtml(a.link)}" target="_blank"><button class="secondary">↗ Abrir Original</button></a>
+    </div>
+    <h2>${escapeHtml(a.title)}</h2>
+    <div class="reader-meta">${escapeHtml(sourceTitle(a.sourceUrl))} · ${formatDate(a.date)}</div>
+    <div class="reader-body">${body}</div>
+  `;
+  document.getElementById('reader-container').scrollTop = 0;
+}
+
+function closeArticle() {
+  document.body.classList.remove('reading');
 }
 
 function sanitizeHtml(html) {
@@ -269,13 +360,6 @@ function sanitizeHtml(html) {
   walk(tpl.content); return tpl.innerHTML;
 }
 
-// FUENTES DE PRUEBA POR SI EL JSON ESTÁ VACÍO
-const MOCK_SOURCES = [
-  { url: 'https://www.xataka.com/feedburner.xml', title: 'Xataka (Demo)', category: 'Tecnología' },
-  { url: 'https://hnrss.org/frontpage', title: 'Hacker News (Demo)', category: 'Tecnología' },
-  { url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', title: 'El País (Demo)', category: 'Noticias' }
-];
-
 async function loadData() {
   setStatus('Cargando datos…');
   try {
@@ -284,28 +368,24 @@ async function loadData() {
     const data = await res.json();
     state.sources = data.sources || [];
     state.articles = data.articles || [];
-    
-    // Si está vacío, cargamos las de prueba
     if (state.sources.length === 0) {
       state.sources = MOCK_SOURCES;
-      setStatus('Modo Demo: JSON vacío. Ejecuta la Action en GitHub.', 'ok');
+      setStatus('Modo Demo: Ejecuta la Action en GitHub.', 'ok');
     } else {
       setStatus(`Listo. ${state.sources.length} fuentes, ${state.articles.length} artículos.`);
     }
   } catch (e) { 
-    state.sources = MOCK_SOURCES; // Fallback si falla el fetch
-    setStatus('Modo Demo: No se cargó JSON.', 'ok'); 
+    state.sources = MOCK_SOURCES; 
+    setStatus('Modo Demo: Sin conexión a JSON.', 'ok'); 
   }
 
   try { const s = localStorage.getItem(LS_READ); if (s) state.read = new Set(JSON.parse(s)); } catch(e){}
   try { const s = localStorage.getItem(LS_LOCAL_SOURCES); if (s) state.localSources = JSON.parse(s); } catch(e){}
-  try { const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x])); } catch (e) { console.warn('IndexedDB no disponible', e); }
+  try { const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x])); } catch (e) {}
 
+  updateViewTitle();
   renderSources(); renderList();
 }
-
-document.getElementById('refreshBtn').onclick = () => loadData();
-document.getElementById('addSourceBtn').onclick = () => { document.getElementById('addModal').classList.add('show'); document.getElementById('newSourceUrl').focus(); };
 
 window.confirmAddSource = () => {
   const url = document.getElementById('newSourceUrl').value.trim();
@@ -320,7 +400,7 @@ window.confirmAddSource = () => {
   renderSources();
 };
 
-document.getElementById('exportBtn').onclick = async () => {
+window.exportBackup = async () => {
   const arr = await dbGetAll();
   if (!arr.length) { setStatus('No hay guardados.', 'error'); return; }
   const blob = new Blob([JSON.stringify({ version: 1, savedAt: new Date().toISOString(), articles: arr }, null, 2)], { type: 'application/json' });
@@ -329,7 +409,6 @@ document.getElementById('exportBtn').onclick = async () => {
   setStatus(`Exportados ${arr.length} artículos.`, 'ok');
 };
 
-document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
 document.getElementById('importFile').onchange = async (e) => {
   const file = e.target.files[0]; if (!file) return;
   try {
@@ -339,11 +418,10 @@ document.getElementById('importFile').onchange = async (e) => {
     for (const art of arr) { if (art.id) await dbPut(art); }
     const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x]));
     setStatus(`Importados ${arr.length} artículos.`, 'ok'); renderSources(); renderList();
-  } catch (e) { setStatus('Error importando: ' + e.message, 'error'); }
+  } catch (e) { setStatus('Error importando.', 'error'); }
   e.target.value = '';
 };
 
-document.getElementById('ideasBtn').onclick = () => { renderIdeas(); document.getElementById('ideasModal').classList.add('show'); };
 function getIdeas() { try { return JSON.parse(localStorage.getItem(LS_IDEAS) || '[]'); } catch { return []; } }
 function setIdeas(arr) { localStorage.setItem(LS_IDEAS, JSON.stringify(arr)); }
 window.saveIdea = () => { const text = document.getElementById('ideaText').value.trim(); if (!text) return; const ideas = getIdeas(); ideas.push({ id: 'i' + Date.now(), text, done: false, createdAt: new Date().toISOString() }); setIdeas(ideas); document.getElementById('ideaText').value = ''; renderIdeas(); };
@@ -360,6 +438,7 @@ function renderIdeas() {
     cont.appendChild(div);
   });
 }
+document.getElementById('ideasModal').addEventListener('transitionend', () => { if(!document.getElementById('ideasModal').classList.contains('show')) return; });
 
 (async () => {
   try { await openDB(); await loadData(); } catch (e) { setStatus('Error: ' + e.message, 'error'); }
