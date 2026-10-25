@@ -3,12 +3,13 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { Readability } = require('@mozilla/readability');
 
-// 👇 EDITA ESTA LISTA con las fuentes que quieras
+// 👇 EDITA ESTA LISTA. Ahora puedes poner el dominio principal o el feed directo.
+// Ejemplo: { url: 'https://xataka.com', title: 'Xataka', category: 'Tecnología' }
 const SOURCES = [
-  { url: 'https://www.xataka.com/feedburner.xml', title: 'Xataka' },
-  { url: 'https://hnrss.org/frontpage', title: 'Hacker News' },
-  { url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', title: 'El País' },
-  { url: 'https://www.microsiervos.com/index.xml', title: 'Microsiervos' },
+  { url: 'https://www.xataka.com/feedburner.xml', title: 'Xataka', category: 'Tecnología' },
+  { url: 'https://hnrss.org/frontpage', title: 'Hacker News', category: 'Tecnología' },
+  { url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', title: 'El País', category: 'Noticias' },
+  { url: 'https://www.microsiervos.com/index.xml', title: 'Microsiervos', category: 'Tecnología' },
 ];
 
 const MAX_ARTICLES_PER_SOURCE = 20;
@@ -23,6 +24,30 @@ function unescapeHtml(s) {
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/&amp;/g, '&');
+}
+
+/* NUEVO: Busca la URL real del feed si le pasas una web normal */
+async function discoverFeed(url) {
+  try {
+    if (url.includes('feed') || url.endsWith('.xml') || url.includes('rss')) return url;
+    
+    console.log(`  Buscando feed en: ${url}...`);
+    const res = await fetch(url, { headers: { 'User-Agent': UA } });
+    if (!res.ok) return url;
+    const html = await res.text();
+    
+    const dom = new JSDOM(html);
+    const link = dom.window.document.querySelector('link[type="application/rss+xml"], link[type="application/atom+xml"]');
+    
+    if (link && link.href) {
+      const feedUrl = new URL(link.href, url).href;
+      console.log(`  ✓ Encontrado: ${feedUrl}`);
+      return feedUrl;
+    }
+  } catch (e) {
+    console.warn(`  ⚠ No se pudo autodescubrir en ${url}: ${e.message}`);
+  }
+  return url;
 }
 
 function parseXml(xmlText, sourceUrl) {
@@ -53,53 +78,36 @@ function parseXml(xmlText, sourceUrl) {
   return items;
 }
 
-/* Extracción con Mozilla Readability: elimina publicidad, menús, sidebars */
 async function extractWithReadability(url) {
   try {
     const res = await fetch(url, { headers: { 'User-Agent': UA } });
     if (!res.ok) return null;
     const html = await res.text();
-
     const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document, {
-      charThreshold: 100,
-      keepClasses: false,
-    });
+    const reader = new Readability(dom.window.document, { charThreshold: 100 });
     const article = reader.parse();
     if (!article || !article.content) return null;
-
-    // Arreglar imágenes relativas
     const base = new URL(url);
-    let cleaned = article.content.replace(
-      /<img([^>]*?)src="([^"]+)"/gi,
-      (match, pre, src) => {
-        try { return `<img${pre}src="${new URL(src, base).href}"`; }
-        catch { return match; }
-      }
-    );
-
-    // Eliminar píxeles de tracking y atributos peligrosos
-    cleaned = cleaned
-      .replace(/<img[^>]*width=["']?1["']?[^>]*>/gi, '')
-      .replace(/<img[^>]*height=["']?1["']?[^>]*>/gi, '')
-      .replace(/ on\w+="[^"]*"/gi, '')
-      .replace(/ on\w+='[^']*'/gi, '');
-
+    let cleaned = article.content.replace(/<img([^>]*?)src="([^"]+)"/gi, (match, pre, src) => {
+      try { return `<img${pre}src="${new URL(src, base).href}"`; } catch { return match; }
+    });
+    cleaned = cleaned.replace(/<img[^>]*width=["']?1["']?[^>]*>/gi, '').replace(/<img[^>]*height=["']?1["']?[^>]*>/gi, '').replace(/ on\w+="[^"]*"/gi, '');
     return cleaned.trim();
-  } catch (e) {
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
 async function main() {
   const allArticles = [];
+  const validSources = [];
+
   for (const s of SOURCES) {
     try {
-      console.log(`\nDescargando feed: ${s.title}`);
-      const res = await fetch(s.url, { headers: { 'User-Agent': UA } });
+      const realFeedUrl = await discoverFeed(s.url);
+      console.log(`\nDescargando feed: ${s.title} (${realFeedUrl})`);
+      const res = await fetch(realFeedUrl, { headers: { 'User-Agent': UA } });
       if (!res.ok) { console.warn(`✗ ${s.title}: HTTP ${res.status}`); continue; }
       const xml = await res.text();
-      let items = parseXml(xml, s.url);
+      let items = parseXml(xml, s.url); // Guardamos la URL original como ID de fuente
       items.sort((a, b) => new Date(b.date) - new Date(a.date));
       items = items.slice(0, MAX_ARTICLES_PER_SOURCE);
       console.log(`  ${items.length} artículos`);
@@ -113,6 +121,7 @@ async function main() {
         else process.stdout.write('(sin extracto)\n');
       }
       allArticles.push(...items);
+      validSources.push(s); // Solo guardamos las que funcionaron
     } catch (e) {
       console.warn(`✗ ${s.title}: ${e.message}`);
     }
@@ -121,11 +130,17 @@ async function main() {
   allArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
   const trimmed = allArticles.slice(0, 2000);
 
-  const out = { sources: SOURCES, articles: trimmed, updatedAt: new Date().toISOString() };
+  const out = { 
+    version: "0.3", 
+    sources: validSources, 
+    articles: trimmed, 
+    updatedAt: new Date().toISOString() 
+  };
+  
   const outPath = path.join(__dirname, '..', 'data', 'feeds.json');
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
-  console.log(`\nTotal: ${trimmed.length} artículos guardados en data/feeds.json`);
+  console.log(`\nTotal: ${trimmed.length} artículos guardados.`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
