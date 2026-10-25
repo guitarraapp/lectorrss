@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mi Lector RSS - v0.5</title>
+<title>Mi Lector RSS - v0.6</title>
 <style>
-  :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; }
+  :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; --favorite:#ffcc00; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#1c1c1e; --panel:#2c2c2e; --border:#3a3a3c; --text:#f2f2f7; --muted:#8e8e93; --accent:#0a84ff; }
   }
@@ -36,23 +36,28 @@
   .source-item { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:8px; cursor:pointer; font-size:14px; color:var(--text); }
   .source-item:hover, .source-item.active { background:var(--bg); }
   .source-item .count { margin-left:auto; font-size:11px; background:var(--unread); color:#fff; border-radius:10px; padding:2px 8px; font-weight:600; }
-  .source-item .edit-btn { margin-left:4px; font-size:16px; color:var(--muted); opacity:0; padding:4px; }
-  .source-item:hover .edit-btn { opacity:1; }
-  @media(max-width:900px) { .source-item .edit-btn { opacity:1; } } /* En móvil siempre visible */
+  .source-item .edit-btn { margin-left:4px; font-size:16px; color:var(--muted); opacity:0.6; padding:4px; }
   
   #list-container { flex:1; overflow-y:auto; background:var(--bg); width:100%; max-width: 100%; }
   @media(min-width:900px) { #list-container { max-width: 450px; border-right: 1px solid var(--border); } }
   
-  .article { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--panel); display:flex; gap:12px; position:relative; }
+  /* Contenedor para el Swipe */
+  .article-wrapper { position:relative; overflow:hidden; border-bottom:1px solid var(--border); }
+  .swipe-hint { position:absolute; top:0; bottom:0; display:flex; align-items:center; padding:0 20px; font-weight:bold; font-size:20px; }
+  .swipe-hint.right { left:0; background:var(--favorite); color:#000; border-radius: 0 8px 8px 0; }
+  .swipe-hint.left { right:0; background:var(--accent); color:#fff; border-radius: 8px 0 0 8px; }
+  
+  .article { padding:14px 16px; cursor:pointer; background:var(--panel); display:flex; gap:12px; position:relative; transition:transform 0.2s ease-out; width:100%; z-index:2; }
   .article:hover { background:var(--bg); }
   .article.unread { border-left:4px solid var(--unread); }
   .article.read { opacity:.65; }
   .article .thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--bg); }
   .article .body { flex:1; min-width:0; }
-  .article .title { font-size:15px; font-weight:600; margin-bottom:6px; line-height:1.3; padding-right: 24px; }
+  .article .title { font-size:15px; font-weight:600; margin-bottom:6px; line-height:1.3; }
   .article .meta { font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
   .article .snippet { font-size:13px; color:var(--muted); margin-top:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .article .delete-btn { position:absolute; top:14px; right:14px; color:var(--danger); background:none; border:none; font-size:18px; padding:0; cursor:pointer; }
+  .article .fav-icon { color:var(--favorite); position:absolute; top:14px; right:14px; font-size:16px; }
+  .article .delete-btn { position:absolute; top:14px; right:14px; color:var(--danger); background:none; border:none; font-size:18px; padding:0; cursor:pointer; z-index:5; }
   
   #reader-container { display:none; flex:1; background:var(--panel); overflow-y:auto; flex-direction:column; }
   @media(min-width:900px) { 
@@ -94,8 +99,10 @@
   .idea .idea-actions { display:flex; gap:8px; }
   .idea .idea-actions button { padding:6px 10px; font-size:12px; }
 
+  /* Barra de estado con botón de deshacer */
   #status { padding:6px 12px; font-size:11px; color:var(--muted); background:var(--panel); border-top:1px solid var(--border); min-height:28px; display:flex; justify-content:space-between; align-items:center; }
   .version-tag { font-size:10px; color:#ccc; }
+  .undo-btn { background:var(--accent); color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; margin-left:8px; }
 </style>
 </head>
 <body>
@@ -103,7 +110,7 @@
 <header>
   <button class="icon" onclick="toggleDrawer()">☰</button>
   <h1 id="currentViewTitle">Todas</h1>
-  <button class="icon" onclick="markAllRead()" title="Marcar todo leído">✓</button>
+  <button class="icon" onclick="confirmMarkAllRead()" title="Marcar todo leído">✓</button>
   <button class="icon" onclick="loadData()" title="Recargar">⟳</button>
 </header>
 
@@ -114,8 +121,9 @@
     <div class="reader-header">
       <button class="icon" onclick="closeArticle()">←</button>
       <div class="title" id="readerHeaderTitle"></div>
-      <button class="icon" id="readerSaveBtn" title="Guardar/Quitar">💾</button>
-      <button class="icon" id="readerUnreadBtn" title="Marcar no leído">↺</button>
+      <button class="icon" id="readerFavBtn" title="Favorito">☆</button>
+      <button class="icon" id="readerSaveBtn" title="Guardar offline">💾</button>
+      <button class="icon" onclick="openReaderMenu()" title="Opciones">⋮</button>
     </div>
     <div class="reader-content" id="readerContent"></div>
   </section>
@@ -140,8 +148,11 @@
 </div>
 
 <div id="status">
-  <span id="statusText">Cargando…</span>
-  <span class="version-tag">v0.5</span>
+  <div style="display:flex; align-items:center;">
+    <span id="statusText">Cargando…</span>
+    <button id="undoBtn" class="undo-btn" style="display:none" onclick="undoAction()">Deshacer</button>
+  </div>
+  <span class="version-tag">v0.6</span>
 </div>
 
 <!-- Modales -->
@@ -171,8 +182,21 @@
     <input id="editSourceCategory" type="text">
     <input type="hidden" id="editSourceUrl">
     <div class="actions" style="justify-content:space-between;">
-      <button class="danger" id="deleteSourceBtn">Eliminar fuente</button>
+      <button class="danger" id="deleteSourceBtn">Eliminar/Ocultar</button>
       <button onclick="saveEditSource()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="readerMenuModal">
+  <div class="modal">
+    <h3>Opciones del artículo</h3>
+    <div class="actions" style="flex-direction:column; align-items:stretch; gap:10px;">
+      <button class="secondary" onclick="toggleReadStatus(); document.getElementById('readerMenuModal').classList.remove('show');">↺ Marcar como no leído</button>
+      <a href="#" id="readerOriginalLink" target="_blank" style="text-decoration:none;"><button class="secondary" style="width:100%;">↗ Abrir en el sitio original</button></a>
+    </div>
+    <div class="actions" style="margin-top:20px;">
+      <button class="secondary" onclick="document.getElementById('readerMenuModal').classList.remove('show')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -189,11 +213,12 @@
 
 <script>
 const state = {
-  sources: [], articles: [], read: new Set(),
+  sources: [], articles: [], read: new Set(), favorites: new Set(),
   localSources: [], saved: new Map(),
-  activeSource: null, viewMode: 'all',
+  activeSource: null, viewMode: 'all', showOnlyFavorites: false,
   activeArticle: null,
-  collapsedCategories: new Set()
+  collapsedCategories: new Set(),
+  lastAction: null // Para el botón de deshacer
 };
 
 const MOCK_SOURCES = [
@@ -218,15 +243,32 @@ function dbPut(a) { return new Promise((res, rej) => { const tx = db.transaction
 function dbDelete(id) { return new Promise((res, rej) => { const tx = db.transaction('guardados', 'readwrite'); tx.objectStore('guardados').delete(id); tx.oncomplete = res; tx.onerror = e => rej(e.target.error); }); }
 function dbGetAll() { return new Promise((res, rej) => { const tx = db.transaction('guardados', 'readonly'); const req = tx.objectStore('guardados').getAll(); req.onsuccess = () => res(req.result || []); req.onerror = e => rej(e.target.error); }); }
 
-const LS_READ = 'rss_read_v1'; const LS_LOCAL_SOURCES = 'rss_local_sources_v1'; const LS_IDEAS = 'rss_ideas_v1';
+const LS_READ = 'rss_read_v1'; const LS_FAVS = 'rss_favs_v1'; const LS_LOCAL_SOURCES = 'rss_local_sources_v1'; const LS_IDEAS = 'rss_ideas_v1';
 
 const $list = document.getElementById('list-container');
 const $readerContent = document.getElementById('readerContent');
 const $drawerSources = document.getElementById('drawerSources');
 const $statusText = document.getElementById('statusText');
 const $viewTitle = document.getElementById('currentViewTitle');
+const $undoBtn = document.getElementById('undoBtn');
 
-function setStatus(msg, type='') { $statusText.textContent = msg; $statusText.parentElement.className = type; }
+function setStatus(msg, type='') { 
+  $statusText.textContent = msg; 
+  $statusText.parentElement.parentElement.className = type; 
+  $undoBtn.style.display = state.lastAction ? 'inline-block' : 'none';
+}
+function clearUndo() { state.lastAction = null; $undoBtn.style.display = 'none'; }
+window.undoAction = () => {
+  if (!state.lastAction) return;
+  if (state.lastAction.type === 'markAllRead') {
+    state.lastAction.ids.forEach(id => state.read.delete(id));
+    localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
+    setStatus('Acción deshecha.', 'ok');
+  }
+  clearUndo();
+  renderSources(); renderList();
+};
+
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function sourceTitle(url){ const s=[...state.sources,...state.localSources].find(x=>x.url===url); return s?.title || url; }
 function formatDate(iso){ const d=new Date(iso); if(isNaN(d)) return ''; const diff=(Date.now()-d)/60000; if(diff<60) return `hace ${Math.max(1,Math.round(diff))} min`; if(diff<60*24) return `hace ${Math.round(diff/60)} h`; return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'}); }
@@ -240,14 +282,19 @@ function toggleDrawer() {
 function renderSources() {
   $drawerSources.innerHTML = '';
   
-  const mkFixed = (label, mode, count) => {
+  const mkFixed = (label, mode, count, isFavFilter = false) => {
     const div = document.createElement('div');
-    div.className = 'source-item' + (state.viewMode === mode ? ' active' : '');
+    div.className = 'source-item' + (state.viewMode === mode && state.showOnlyFavorites === isFavFilter ? ' active' : '');
     div.innerHTML = `<span>${label}</span>${count ? `<span class="count">${count}</span>` : ''}`;
-    div.onclick = () => { state.viewMode = mode; updateViewTitle(); renderSources(); renderList(); toggleDrawer(); closeArticle(); };
+    div.onclick = () => { 
+      state.viewMode = mode; 
+      state.showOnlyFavorites = isFavFilter;
+      updateViewTitle(); renderSources(); renderList(); toggleDrawer(); closeArticle(); 
+    };
     $drawerSources.appendChild(div);
   };
   mkFixed('🗂️ Todas', 'all', state.articles.filter(a => !state.read.has(a.id)).length);
+  mkFixed('⭐ Favoritos', 'all', state.favorites.size, true);
   mkFixed('💾 Guardados', 'saved', state.saved.size);
 
   const cats = {};
@@ -272,15 +319,14 @@ function renderSources() {
     if (!isCollapsed) {
       cats[cat].forEach(s => {
         const unread = state.articles.filter(a => a.sourceUrl === s.url && !state.read.has(a.id)).length;
-        const isLocal = state.localSources.some(ls => ls.url === s.url);
         const div = document.createElement('div');
-        div.className = 'source-item' + (state.viewMode === s.url ? ' active' : '');
+        div.className = 'source-item' + (state.viewMode === s.url && !state.showOnlyFavorites ? ' active' : '');
         div.innerHTML = `
           <span style="margin-left:12px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📡 ${escapeHtml(s.title || s.url)}</span>
           ${unread ? `<span class="count">${unread}</span>` : ''}
-          ${isLocal ? `<button class="edit-btn" onclick="event.stopPropagation(); openEditSource('${escapeHtml(s.url)}')">⚙️</button>` : ''}
+          <button class="edit-btn" onclick="event.stopPropagation(); openEditSource('${escapeHtml(s.url)}')">⚙️</button>
         `;
-        div.onclick = () => { state.viewMode = s.url; updateViewTitle(); renderSources(); renderList(); toggleDrawer(); closeArticle(); };
+        div.onclick = () => { state.viewMode = s.url; state.showOnlyFavorites = false; updateViewTitle(); renderSources(); renderList(); toggleDrawer(); closeArticle(); };
         $drawerSources.appendChild(div);
       });
     }
@@ -288,7 +334,8 @@ function renderSources() {
 }
 
 function updateViewTitle() {
-  if (state.viewMode === 'all') $viewTitle.textContent = 'Todas las noticias';
+  if (state.showOnlyFavorites) $viewTitle.textContent = 'Favoritos';
+  else if (state.viewMode === 'all') $viewTitle.textContent = 'Todas las noticias';
   else if (state.viewMode === 'saved') $viewTitle.textContent = 'Guardados';
   else $viewTitle.textContent = sourceTitle(state.viewMode);
 }
@@ -299,6 +346,7 @@ function renderList() {
   else {
     items = state.articles;
     if (state.viewMode !== 'all') items = items.filter(a => a.sourceUrl === state.viewMode);
+    if (state.showOnlyFavorites) items = items.filter(a => state.favorites.has(a.id));
   }
   items = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
   
@@ -310,23 +358,79 @@ function renderList() {
   $list.innerHTML = '';
   items.forEach(a => {
     const read = state.read.has(a.id);
+    const isFav = state.favorites.has(a.id);
     const thumb = firstImage(a.content);
     const isSaved = state.saved.has(a.id);
     const isSavedView = state.viewMode === 'saved';
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'article-wrapper';
+    
+    // Hints de swipe
+    wrapper.innerHTML = `
+      <div class="swipe-hint right">⭐ Favorito</div>
+      <div class="swipe-hint left">✓ Leído</div>
+    `;
     
     const el = document.createElement('div');
     el.className = 'article ' + (read ? 'read' : 'unread');
     el.innerHTML = `
       ${thumb ? `<img class="thumb" src="${escapeHtml(thumb)}" loading="lazy" onerror="this.style.display='none'">` : ''}
       <div class="body">
-        <div class="title">${isSaved ? '💾 ' : ''}${escapeHtml(a.title)}</div>
+        <div class="title">${isFav ? '⭐ ' : ''}${escapeHtml(a.title)}</div>
         <div class="meta"><span>${escapeHtml(sourceTitle(a.sourceUrl))}</span><span>${formatDate(a.date)}</span></div>
         <div class="snippet">${escapeHtml(a.snippet)}</div>
       </div>
       ${isSavedView ? `<button class="delete-btn" onclick="event.stopPropagation(); removeSaved('${escapeHtml(a.id)}')">🗑️</button>` : ''}
     `;
-    el.onclick = () => openArticle(a);
-    $list.appendChild(el);
+    
+    // Lógica de Swipe
+    let startX = 0, currentX = 0, isSwiping = false;
+    el.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      isSwiping = true;
+      el.style.transition = 'none';
+    }, {passive: true});
+    
+    el.addEventListener('touchmove', e => {
+      if (!isSwiping) return;
+      currentX = e.touches[0].clientX - startX;
+      el.style.transform = `translateX(${currentX}px)`;
+    }, {passive: true});
+    
+    el.addEventListener('touchend', () => {
+      if (!isSwiping) return;
+      isSwiping = false;
+      el.style.transition = 'transform 0.2s ease-out';
+      
+      if (currentX > 70) {
+        // Swipe derecha -> Favorito
+        if (state.favorites.has(a.id)) state.favorites.delete(a.id);
+        else state.favorites.add(a.id);
+        localStorage.setItem(LS_FAVS, JSON.stringify([...state.favorites]));
+        el.style.transform = 'translateX(0)';
+        renderSources(); renderList();
+      } else if (currentX < -70) {
+        // Swipe izquierda -> Leído/No leído
+        if (state.read.has(a.id)) state.read.delete(a.id);
+        else state.read.add(a.id);
+        localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
+        el.style.transform = 'translateX(0)';
+        renderSources(); renderList();
+      } else {
+        // Volver a su sitio si no se supera el umbral
+        el.style.transform = 'translateX(0)';
+      }
+      currentX = 0;
+    });
+
+    el.onclick = (e) => {
+      // Solo abrir si no hemos deslizado
+      if (Math.abs(currentX) < 10) openArticle(a);
+    };
+    
+    wrapper.appendChild(el);
+    $list.appendChild(wrapper);
   });
 }
 
@@ -337,39 +441,49 @@ function openArticle(a) {
   renderSources(); renderList();
 
   const isSaved = state.saved.has(a.id);
+  const isFav = state.favorites.has(a.id);
   const hasFull = a.content && a.content.length > 500;
   const body = hasFull
     ? sanitizeHtml(a.content)
     : `<p>${escapeHtml(a.snippet)}</p><p style="color:var(--muted);font-size:14px;margin-top:20px;">Este feed solo trae un resumen. <a href="${escapeHtml(a.link)}" target="_blank">Leer original →</a></p>`;
 
   document.getElementById('readerHeaderTitle').textContent = a.title;
+  document.getElementById('readerOriginalLink').href = a.link;
   
-  const $saveBtn = document.getElementById('readerSaveBtn');
-  $saveBtn.textContent = isSaved ? '🗑️' : '💾';
-  $saveBtn.onclick = async () => {
-    if (state.saved.has(a.id)) { await dbDelete(a.id); state.saved.delete(a.id); setStatus('Eliminado de guardados.', 'ok'); }
-    else { const toSave = { ...a, sourceTitle: sourceTitle(a.sourceUrl), savedAt: new Date().toISOString() }; await dbPut(toSave); state.saved.set(a.id, toSave); setStatus('Guardado.', 'ok'); }
+  const $favBtn = document.getElementById('readerFavBtn');
+  $favBtn.textContent = isFav ? '⭐' : '☆';
+  $favBtn.onclick = () => {
+    if (state.favorites.has(a.id)) state.favorites.delete(a.id);
+    else state.favorites.add(a.id);
+    localStorage.setItem(LS_FAVS, JSON.stringify([...state.favorites]));
     renderSources(); renderList(); openArticle(a);
   };
 
-  document.getElementById('readerUnreadBtn').onclick = () => {
-    state.read.delete(a.id);
-    localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
-    setStatus('Marcado como no leído.', 'ok');
-    renderSources(); renderList();
-    closeArticle();
+  const $saveBtn = document.getElementById('readerSaveBtn');
+  $saveBtn.textContent = isSaved ? '🗑️' : '💾';
+  $saveBtn.onclick = async () => {
+    if (state.saved.has(a.id)) { await dbDelete(a.id); state.saved.delete(a.id); setStatus('Eliminado.', 'ok'); }
+    else { const toSave = { ...a, sourceTitle: sourceTitle(a.sourceUrl), savedAt: new Date().toISOString() }; await dbPut(toSave); state.saved.set(a.id, toSave); setStatus('Guardado offline.', 'ok'); }
+    renderSources(); renderList(); openArticle(a);
   };
 
   $readerContent.innerHTML = `
-    <div class="reader-toolbar">
-      <a href="${escapeHtml(a.link)}" target="_blank"><button class="secondary">↗ Abrir Original</button></a>
-    </div>
     <h2>${escapeHtml(a.title)}</h2>
     <div class="reader-meta">${escapeHtml(sourceTitle(a.sourceUrl))} · ${formatDate(a.date)}</div>
     <div class="reader-body">${body}</div>
   `;
   document.getElementById('reader-container').scrollTop = 0;
 }
+
+window.openReaderMenu = () => document.getElementById('readerMenuModal').classList.add('show');
+window.toggleReadStatus = () => {
+  if (!state.activeArticle) return;
+  if (state.read.has(state.activeArticle.id)) state.read.delete(state.activeArticle.id);
+  else state.read.add(state.activeArticle.id);
+  localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
+  setStatus('Estado de lectura cambiado.', 'ok');
+  renderSources(); renderList();
+};
 
 function closeArticle() { document.body.classList.remove('reading'); }
 
@@ -386,11 +500,19 @@ function sanitizeHtml(html) {
   walk(tpl.content); return tpl.innerHTML;
 }
 
-window.markAllRead = () => {
+window.confirmMarkAllRead = () => {
   let items = state.viewMode === 'saved' ? [...state.saved.values()] : state.articles;
   if (state.viewMode !== 'all' && state.viewMode !== 'saved') items = items.filter(a => a.sourceUrl === state.viewMode);
-  items.forEach(a => state.read.add(a.id));
+  if (state.showOnlyFavorites) items = items.filter(a => state.favorites.has(a.id));
+  
+  if (!items.length) return;
+  if (!confirm(`¿Marcar los ${items.length} artículos como leídos?`)) return;
+  
+  const ids = items.map(a => a.id);
+  ids.forEach(id => state.read.add(id));
   localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
+  
+  state.lastAction = { type: 'markAllRead', ids: ids };
   setStatus('Todos marcados como leídos.', 'ok');
   renderSources(); renderList();
 };
@@ -423,18 +545,28 @@ window.confirmAddSource = () => {
 };
 
 window.openEditSource = (url) => {
-  const s = state.localSources.find(x => x.url === url);
+  const s = [...state.sources, ...state.localSources].find(x => x.url === url);
   if (!s) return;
   document.getElementById('editSourceUrl').value = s.url;
   document.getElementById('editSourceTitle').value = s.title;
   document.getElementById('editSourceCategory').value = s.category || 'General';
+  
   document.getElementById('deleteSourceBtn').onclick = () => {
-    if (!confirm('¿Eliminar esta fuente local?')) return;
-    state.localSources = state.localSources.filter(x => x.url !== url);
-    localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+    const isLocal = state.localSources.some(x => x.url === url);
+    if (isLocal) {
+      if (!confirm('¿Eliminar esta fuente local?')) return;
+      state.localSources = state.localSources.filter(x => x.url !== url);
+      localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+    } else {
+      if (!confirm('No puedes borrar una fuente del servidor, pero puedes ocultarla. ¿Ocultar?')) return;
+      // Lógica para ocultar fuentes del servidor (se guarda en localStorage)
+      const hidden = JSON.parse(localStorage.getItem('rss_hidden_sources') || '[]');
+      hidden.push(url);
+      localStorage.setItem('rss_hidden_sources', JSON.stringify(hidden));
+    }
     if (state.viewMode === url) state.viewMode = 'all';
     document.getElementById('editSourceModal').classList.remove('show');
-    setStatus('Fuente eliminada.', 'ok');
+    setStatus('Fuente eliminada/ocultada.', 'ok');
     updateViewTitle(); renderSources(); renderList();
   };
   document.getElementById('editSourceModal').classList.add('show');
@@ -442,11 +574,23 @@ window.openEditSource = (url) => {
 
 window.saveEditSource = () => {
   const url = document.getElementById('editSourceUrl').value;
-  const s = state.localSources.find(x => x.url === url);
-  if (!s) return;
-  s.title = document.getElementById('editSourceTitle').value.trim() || s.title;
-  s.category = document.getElementById('editSourceCategory').value.trim() || 'General';
-  localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+  const isLocal = state.localSources.some(x => x.url === url);
+  
+  if (isLocal) {
+    const s = state.localSources.find(x => x.url === url);
+    s.title = document.getElementById('editSourceTitle').value.trim() || s.title;
+    s.category = document.getElementById('editSourceCategory').value.trim() || 'General';
+    localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+  } else {
+    // Si es del servidor, guardamos la personalización localmente
+    const overrides = JSON.parse(localStorage.getItem('rss_source_overrides') || '{}');
+    overrides[url] = {
+      title: document.getElementById('editSourceTitle').value.trim(),
+      category: document.getElementById('editSourceCategory').value.trim() || 'General'
+    };
+    localStorage.setItem('rss_source_overrides', JSON.stringify(overrides));
+  }
+  
   document.getElementById('editSourceModal').classList.remove('show');
   setStatus('Fuente actualizada.', 'ok');
   updateViewTitle(); renderSources(); renderList();
@@ -480,20 +624,35 @@ async function loadData() {
     const res = await fetch('data/feeds.json?t=' + Date.now());
     if (!res.ok) throw new Error('No se pudo cargar data/feeds.json');
     const data = await res.json();
-    state.sources = data.sources || [];
+    let loadedSources = data.sources || [];
     state.articles = data.articles || [];
+    
+    // Aplicar overrides y ocultos (para fuentes del servidor)
+    const hidden = JSON.parse(localStorage.getItem('rss_hidden_sources') || '[]');
+    const overrides = JSON.parse(localStorage.getItem('rss_source_overrides') || '{}');
+    
+    state.sources = loadedSources
+      .filter(s => !hidden.includes(s.url))
+      .map(s => {
+        if (overrides[s.url]) {
+          return { ...s, title: overrides[s.url].title || s.title, category: overrides[s.url].category || s.category };
+        }
+        return s;
+      });
+
     if (state.sources.length === 0) {
       state.sources = MOCK_SOURCES;
-      setStatus('Modo Demo: Ejecuta la Action en GitHub.', 'ok');
+      setStatus('Modo Demo: Ejecuta la Action.', 'ok');
     } else {
-      setStatus(`Listo. ${state.sources.length} fuentes, ${state.articles.length} artículos.`);
+      setStatus(`Listo. ${state.sources.length} fuentes.`);
     }
   } catch (e) { 
     state.sources = MOCK_SOURCES; 
-    setStatus('Modo Demo: Sin conexión a JSON.', 'ok'); 
+    setStatus('Modo Demo: Sin conexión.', 'ok'); 
   }
 
   try { const s = localStorage.getItem(LS_READ); if (s) state.read = new Set(JSON.parse(s)); } catch(e){}
+  try { const s = localStorage.getItem(LS_FAVS); if (s) state.favorites = new Set(JSON.parse(s)); } catch(e){}
   try { const s = localStorage.getItem(LS_LOCAL_SOURCES); if (s) state.localSources = JSON.parse(s); } catch(e){}
   try { const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x])); } catch (e) {}
 
