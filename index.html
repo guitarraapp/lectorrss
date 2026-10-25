@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mi Lector RSS - v0.6</title>
+<title>Mi Lector RSS - v0.7</title>
 <style>
   :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; --favorite:#ffcc00; }
   @media (prefers-color-scheme: dark) {
@@ -41,23 +41,21 @@
   #list-container { flex:1; overflow-y:auto; background:var(--bg); width:100%; max-width: 100%; }
   @media(min-width:900px) { #list-container { max-width: 450px; border-right: 1px solid var(--border); } }
   
-  /* Contenedor para el Swipe */
-  .article-wrapper { position:relative; overflow:hidden; border-bottom:1px solid var(--border); }
-  .swipe-hint { position:absolute; top:0; bottom:0; display:flex; align-items:center; padding:0 20px; font-weight:bold; font-size:20px; }
-  .swipe-hint.right { left:0; background:var(--favorite); color:#000; border-radius: 0 8px 8px 0; }
-  .swipe-hint.left { right:0; background:var(--accent); color:#fff; border-radius: 8px 0 0 8px; }
+  .article-wrapper { position:relative; overflow:hidden; border-bottom:1px solid var(--border); background:var(--panel); }
   
-  .article { padding:14px 16px; cursor:pointer; background:var(--panel); display:flex; gap:12px; position:relative; transition:transform 0.2s ease-out; width:100%; z-index:2; }
+  /* Indicadores sutiles en la parte superior */
+  .article { padding:10px 14px; cursor:pointer; background:var(--panel); display:flex; gap:10px; position:relative; transition:transform 0.15s ease-out; width:100%; z-index:2; border-top: 3px solid transparent; }
+  .article.is-fav { border-top-color: rgba(255, 204, 0, 0.4); } /* Amarillo difuminado */
+  .article.is-read { border-top-color: rgba(10, 132, 255, 0.3); } /* Azul difuminado */
+  
   .article:hover { background:var(--bg); }
-  .article.unread { border-left:4px solid var(--unread); }
   .article.read { opacity:.65; }
-  .article .thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--bg); }
+  .article .thumb { width:48px; height:48px; border-radius:6px; object-fit:cover; flex-shrink:0; background:var(--bg); }
   .article .body { flex:1; min-width:0; }
-  .article .title { font-size:15px; font-weight:600; margin-bottom:6px; line-height:1.3; }
-  .article .meta { font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
-  .article .snippet { font-size:13px; color:var(--muted); margin-top:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .article .fav-icon { color:var(--favorite); position:absolute; top:14px; right:14px; font-size:16px; }
-  .article .delete-btn { position:absolute; top:14px; right:14px; color:var(--danger); background:none; border:none; font-size:18px; padding:0; cursor:pointer; z-index:5; }
+  .article .title { font-size:14px; font-weight:600; margin-bottom:4px; line-height:1.25; }
+  .article .meta { font-size:11px; color:var(--muted); display:flex; gap:6px; flex-wrap:wrap; }
+  .article .snippet { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .article .delete-btn { position:absolute; top:10px; right:10px; color:var(--danger); background:none; border:none; font-size:16px; padding:0; cursor:pointer; z-index:5; }
   
   #reader-container { display:none; flex:1; background:var(--panel); overflow-y:auto; flex-direction:column; }
   @media(min-width:900px) { 
@@ -99,10 +97,13 @@
   .idea .idea-actions { display:flex; gap:8px; }
   .idea .idea-actions button { padding:6px 10px; font-size:12px; }
 
-  /* Barra de estado con botón de deshacer */
   #status { padding:6px 12px; font-size:11px; color:var(--muted); background:var(--panel); border-top:1px solid var(--border); min-height:28px; display:flex; justify-content:space-between; align-items:center; }
   .version-tag { font-size:10px; color:#ccc; }
   .undo-btn { background:var(--accent); color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; margin-left:8px; }
+  
+  .help-box { background: rgba(10, 132, 255, 0.1); border-left: 4px solid var(--accent); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; line-height: 1.5; }
+  .help-box code { background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 4px; font-family: monospace; }
+  .feed-editor-textarea { font-family: monospace; font-size: 13px; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -138,6 +139,7 @@
   <div class="drawer-content" id="drawerSources"></div>
   <div class="drawer-footer">
     <button class="secondary" onclick="openAddModal(); toggleDrawer();">+ Añadir Fuente</button>
+    <button class="secondary" onclick="openFeedEditor(); toggleDrawer();">⚙️ Editor de Feeds</button>
     <div style="display:flex; gap:8px;">
       <button class="secondary" style="flex:1" onclick="exportBackup()">📤 Exportar</button>
       <button class="secondary" style="flex:1" onclick="document.getElementById('importFile').click()">📥 Importar</button>
@@ -152,7 +154,7 @@
     <span id="statusText">Cargando…</span>
     <button id="undoBtn" class="undo-btn" style="display:none" onclick="undoAction()">Deshacer</button>
   </div>
-  <span class="version-tag">v0.6</span>
+  <span class="version-tag">v0.7</span>
 </div>
 
 <!-- Modales -->
@@ -169,6 +171,28 @@
     <div class="actions">
       <button class="secondary" onclick="document.getElementById('addModal').classList.remove('show')">Cancelar</button>
       <button onclick="confirmAddSource()">Añadir</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="feedEditorModal">
+  <div class="modal">
+    <h3>⚙️ Editor de Feeds</h3>
+    <div class="help-box">
+      <strong>¿Cómo actualizar tus fuentes en GitHub?</strong><br>
+      1. Pulsa "📋 Copiar todo".<br>
+      2. Ve a tu repositorio en GitHub y abre el archivo <code>scripts/update-feeds.js</code>.<br>
+      3. Pega la lista dentro de los corchetes de <code>SOURCES</code>.<br>
+      4. Haz "Commit changes" y ejecuta la Action.
+    </div>
+    <p>Aquí tienes tus fuentes actuales. Puedes editarlas directamente en este cuadro (una por línea en formato <code>URL | Título | Categoría</code>). Al guardar, se aplicarán a tu app localmente.</p>
+    <textarea id="feedEditorText" class="feed-editor-textarea" rows="10"></textarea>
+    <div class="actions" style="justify-content:space-between; margin-top:16px;">
+      <button class="secondary" onclick="copyFeedEditor()">📋 Copiar todo</button>
+      <div style="display:flex; gap:8px;">
+        <button class="secondary" onclick="document.getElementById('feedEditorModal').classList.remove('show')">Cancelar</button>
+        <button onclick="saveFeedEditor()">Guardar en la app</button>
+      </div>
     </div>
   </div>
 </div>
@@ -218,7 +242,7 @@ const state = {
   activeSource: null, viewMode: 'all', showOnlyFavorites: false,
   activeArticle: null,
   collapsedCategories: new Set(),
-  lastAction: null // Para el botón de deshacer
+  lastAction: null
 };
 
 const MOCK_SOURCES = [
@@ -366,14 +390,8 @@ function renderList() {
     const wrapper = document.createElement('div');
     wrapper.className = 'article-wrapper';
     
-    // Hints de swipe
-    wrapper.innerHTML = `
-      <div class="swipe-hint right">⭐ Favorito</div>
-      <div class="swipe-hint left">✓ Leído</div>
-    `;
-    
     const el = document.createElement('div');
-    el.className = 'article ' + (read ? 'read' : 'unread');
+    el.className = 'article ' + (read ? 'read' : '') + (isFav ? ' is-fav' : '') + (read && !isFav ? ' is-read' : '');
     el.innerHTML = `
       ${thumb ? `<img class="thumb" src="${escapeHtml(thumb)}" loading="lazy" onerror="this.style.display='none'">` : ''}
       <div class="body">
@@ -384,48 +402,53 @@ function renderList() {
       ${isSavedView ? `<button class="delete-btn" onclick="event.stopPropagation(); removeSaved('${escapeHtml(a.id)}')">🗑️</button>` : ''}
     `;
     
-    // Lógica de Swipe
-    let startX = 0, currentX = 0, isSwiping = false;
+    // Lógica de Swipe Mejorada (Evita temblores en vertical)
+    let startX = 0, startY = 0, currentX = 0, isSwiping = false, isScrolling = false;
+    
     el.addEventListener('touchstart', e => {
       startX = e.touches[0].clientX;
-      isSwiping = true;
+      startY = e.touches[0].clientY;
+      isSwiping = false;
+      isScrolling = false;
       el.style.transition = 'none';
     }, {passive: true});
     
     el.addEventListener('touchmove', e => {
-      if (!isSwiping) return;
-      currentX = e.touches[0].clientX - startX;
-      el.style.transform = `translateX(${currentX}px)`;
+      if (isScrolling) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      
+      if (!isSwiping && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+        isSwiping = true;
+      }
+      
+      if (isSwiping) {
+        currentX = dx;
+        el.style.transform = `translateX(${currentX}px)`;
+      } else if (Math.abs(dy) > 10) {
+        isScrolling = true;
+      }
     }, {passive: true});
     
     el.addEventListener('touchend', () => {
-      if (!isSwiping) return;
-      isSwiping = false;
-      el.style.transition = 'transform 0.2s ease-out';
-      
-      if (currentX > 70) {
-        // Swipe derecha -> Favorito
-        if (state.favorites.has(a.id)) state.favorites.delete(a.id);
-        else state.favorites.add(a.id);
-        localStorage.setItem(LS_FAVS, JSON.stringify([...state.favorites]));
+      if (isSwiping) {
+        el.style.transition = 'transform 0.2s ease-out';
+        if (currentX > 70) {
+          if (state.favorites.has(a.id)) state.favorites.delete(a.id);
+          else state.favorites.add(a.id);
+          localStorage.setItem(LS_FAVS, JSON.stringify([...state.favorites]));
+        } else if (currentX < -70) {
+          if (state.read.has(a.id)) state.read.delete(a.id);
+          else state.read.add(a.id);
+          localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
+        }
         el.style.transform = 'translateX(0)';
         renderSources(); renderList();
-      } else if (currentX < -70) {
-        // Swipe izquierda -> Leído/No leído
-        if (state.read.has(a.id)) state.read.delete(a.id);
-        else state.read.add(a.id);
-        localStorage.setItem(LS_READ, JSON.stringify([...state.read]));
-        el.style.transform = 'translateX(0)';
-        renderSources(); renderList();
-      } else {
-        // Volver a su sitio si no se supera el umbral
-        el.style.transform = 'translateX(0)';
       }
-      currentX = 0;
+      currentX = 0; isSwiping = false; isScrolling = false;
     });
 
     el.onclick = (e) => {
-      // Solo abrir si no hemos deslizado
       if (Math.abs(currentX) < 10) openArticle(a);
     };
     
@@ -544,6 +567,43 @@ window.confirmAddSource = () => {
   renderSources();
 };
 
+window.openFeedEditor = () => {
+  const all = [...state.sources, ...state.localSources];
+  const text = all.map(s => `${s.url} | ${s.title} | ${s.category || 'General'}`).join('\n');
+  document.getElementById('feedEditorText').value = text;
+  document.getElementById('feedEditorModal').classList.add('show');
+};
+
+window.copyFeedEditor = () => {
+  const ta = document.getElementById('feedEditorText');
+  ta.select();
+  document.execCommand('copy');
+  setStatus('Lista copiada al portapapeles.', 'ok');
+};
+
+window.saveFeedEditor = () => {
+  const lines = document.getElementById('feedEditorText').value.split('\n');
+  const newSources = [];
+  lines.forEach(line => {
+    if (!line.trim()) return;
+    const parts = line.split('|').map(p => p.trim());
+    if (parts[0]) {
+      newSources.push({ url: parts[0], title: parts[1] || parts[0], category: parts[2] || 'General' });
+    }
+  });
+  state.localSources = newSources;
+  localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+  // Opcional: Ocultar las fuentes del servidor que ya no estén en la lista para evitar duplicados
+  const urls = newSources.map(s => s.url);
+  const hidden = JSON.parse(localStorage.getItem('rss_hidden_sources') || '[]');
+  state.sources.forEach(s => { if (!urls.includes(s.url)) hidden.push(s.url); });
+  localStorage.setItem('rss_hidden_sources', JSON.stringify([...new Set(hidden)]);
+  
+  document.getElementById('feedEditorModal').classList.remove('show');
+  setStatus('Lista de fuentes actualizada localmente.', 'ok');
+  renderSources(); renderList();
+};
+
 window.openEditSource = (url) => {
   const s = [...state.sources, ...state.localSources].find(x => x.url === url);
   if (!s) return;
@@ -559,7 +619,6 @@ window.openEditSource = (url) => {
       localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
     } else {
       if (!confirm('No puedes borrar una fuente del servidor, pero puedes ocultarla. ¿Ocultar?')) return;
-      // Lógica para ocultar fuentes del servidor (se guarda en localStorage)
       const hidden = JSON.parse(localStorage.getItem('rss_hidden_sources') || '[]');
       hidden.push(url);
       localStorage.setItem('rss_hidden_sources', JSON.stringify(hidden));
@@ -582,7 +641,6 @@ window.saveEditSource = () => {
     s.category = document.getElementById('editSourceCategory').value.trim() || 'General';
     localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
   } else {
-    // Si es del servidor, guardamos la personalización localmente
     const overrides = JSON.parse(localStorage.getItem('rss_source_overrides') || '{}');
     overrides[url] = {
       title: document.getElementById('editSourceTitle').value.trim(),
@@ -627,7 +685,6 @@ async function loadData() {
     let loadedSources = data.sources || [];
     state.articles = data.articles || [];
     
-    // Aplicar overrides y ocultos (para fuentes del servidor)
     const hidden = JSON.parse(localStorage.getItem('rss_hidden_sources') || '[]');
     const overrides = JSON.parse(localStorage.getItem('rss_source_overrides') || '{}');
     
