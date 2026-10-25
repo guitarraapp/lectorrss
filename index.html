@@ -114,8 +114,8 @@
 const state = {
   sources: [], articles: [], read: new Set(),
   localSources: [],
-  saved: new Map(), // id -> artículo guardado
-  activeSource: null, viewMode: 'all', // 'all' | 'saved' | sourceUrl
+  saved: new Map(),
+  activeSource: null, viewMode: 'all',
   activeArticle: null,
 };
 
@@ -391,7 +391,50 @@ window.saveIdea = () => {
   document.getElementById('ideaText').value = '';
   renderIdeas();
 };
+window.toggleIdea = (id) => {
+  const ideas = getIdeas();
+  const idx = ideas.findIndex(x => x.id === id);
+  if (idx >= 0) {
+    ideas[idx].done = !ideas[idx].done;
+    setIdeas(ideas);
+    renderIdeas();
+  }
+};
+window.deleteIdea = (id) => {
+  if (!confirm('¿Borrar esta idea?')) return;
+  const ideas = getIdeas().filter(x => x.id !== id);
+  setIdeas(ideas);
+  renderIdeas();
+};
+
 function renderIdeas() {
   const ideas = getIdeas();
   const cont = document.getElementById('ideasList');
-  if (!ideas.length) { cont.innerHTML = '<p style="text-align:center;padding:12px">Aún no hay ideas.</p
+  if (!ideas.length) { cont.innerHTML = '<p style="text-align:center;padding:12px">Aún no hay ideas.</p>'; return; }
+  cont.innerHTML = '';
+  ideas.forEach(idea => {
+    const div = document.createElement('div');
+    div.className = 'idea' + (idea.done ? ' done' : '');
+    div.innerHTML = `
+      <div class="text">${escapeHtml(idea.text)}</div>
+      <div class="idea-actions">
+        <button class="secondary" onclick="toggleIdea('${idea.id}')">${idea.done ? '↺ Desmarcar' : '✓ Implementado'}</button>
+        <button class="secondary" onclick="deleteIdea('${idea.id}')" style="color:var(--danger); border-color:var(--danger);">🗑 Borrar</button>
+      </div>
+    `;
+    cont.appendChild(div);
+  });
+}
+
+/* ============ ARRANQUE ============ */
+(async () => {
+  try {
+    await openDB();
+    await loadData();
+  } catch (e) {
+    setStatus('Error crítico iniciando la app: ' + e.message, 'error');
+  }
+})();
+</script>
+</body>
+</html>
