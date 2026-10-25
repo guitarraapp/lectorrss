@@ -2,8 +2,8 @@ name: Actualizar feeds
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # cada 2 horas
-  workflow_dispatch:          # permite ejecutarlo a mano desde la pestaña Actions
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
 
 jobs:
   update:
@@ -15,7 +15,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Descargar feeds
+      - name: Instalar dependencias
+        run: npm install
+      - name: Descargar feeds con Readability
         run: node scripts/update-feeds.js
       - name: Guardar cambios
         run: |
