@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mi Lector RSS - v0.7</title>
+<title>Mi Lector RSS - v0.7.1</title>
 <style>
   :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; --favorite:#ffcc00; }
   @media (prefers-color-scheme: dark) {
@@ -43,10 +43,9 @@
   
   .article-wrapper { position:relative; overflow:hidden; border-bottom:1px solid var(--border); background:var(--panel); }
   
-  /* Indicadores sutiles en la parte superior */
   .article { padding:10px 14px; cursor:pointer; background:var(--panel); display:flex; gap:10px; position:relative; transition:transform 0.15s ease-out; width:100%; z-index:2; border-top: 3px solid transparent; }
-  .article.is-fav { border-top-color: rgba(255, 204, 0, 0.4); } /* Amarillo difuminado */
-  .article.is-read { border-top-color: rgba(10, 132, 255, 0.3); } /* Azul difuminado */
+  .article.is-fav { border-top-color: rgba(255, 204, 0, 0.4); }
+  .article.is-read { border-top-color: rgba(10, 132, 255, 0.3); }
   
   .article:hover { background:var(--bg); }
   .article.read { opacity:.65; }
@@ -154,7 +153,7 @@
     <span id="statusText">Cargando…</span>
     <button id="undoBtn" class="undo-btn" style="display:none" onclick="undoAction()">Deshacer</button>
   </div>
-  <span class="version-tag">v0.7</span>
+  <span class="version-tag">v0.7.1</span>
 </div>
 
 <!-- Modales -->
@@ -402,7 +401,6 @@ function renderList() {
       ${isSavedView ? `<button class="delete-btn" onclick="event.stopPropagation(); removeSaved('${escapeHtml(a.id)}')">🗑️</button>` : ''}
     `;
     
-    // Lógica de Swipe Mejorada (Evita temblores en vertical)
     let startX = 0, startY = 0, currentX = 0, isSwiping = false, isScrolling = false;
     
     el.addEventListener('touchstart', e => {
@@ -593,11 +591,11 @@ window.saveFeedEditor = () => {
   });
   state.localSources = newSources;
   localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
-  // Opcional: Ocultar las fuentes del servidor que ya no estén en la lista para evitar duplicados
+  
   const urls = newSources.map(s => s.url);
   const hidden = JSON.parse(localStorage.getItem('rss_hidden_sources') || '[]');
   state.sources.forEach(s => { if (!urls.includes(s.url)) hidden.push(s.url); });
-  localStorage.setItem('rss_hidden_sources', JSON.stringify([...new Set(hidden)]);
+  localStorage.setItem('rss_hidden_sources', JSON.stringify([...new Set(hidden)])); // <-- AQUÍ ESTABA EL ERROR
   
   document.getElementById('feedEditorModal').classList.remove('show');
   setStatus('Lista de fuentes actualizada localmente.', 'ok');
