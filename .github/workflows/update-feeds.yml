@@ -1,0 +1,26 @@
+name: Actualizar feeds
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # cada 2 horas
+  workflow_dispatch:          # permite ejecutarlo a mano desde la pestaña Actions
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Descargar feeds
+        run: node scripts/update-feeds.js
+      - name: Guardar cambios
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/feeds.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Actualizar feeds [skip ci]"
+          git push
