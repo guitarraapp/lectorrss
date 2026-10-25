@@ -5,57 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mi Lector RSS</title>
 <style>
-  :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; }
+  :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1c1c1e; --panel:#2c2c2e; --border:#3a3a3c; --text:#f2f2f7; --muted:#8e8e93; --accent:#0a84ff; }
+  }
   * { box-sizing:border-box; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
-  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--border); }
-  header h1 { font-size:16px; margin:0; flex:1; }
-  button { padding:8px 14px; border:none; border-radius:8px; background:var(--accent); color:#fff; font-size:13px; cursor:pointer; }
+  header { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0; flex:1; min-width:120px; }
+  button { padding:7px 11px; border:none; border-radius:8px; background:var(--accent); color:#fff; font-size:12px; cursor:pointer; white-space:nowrap; }
   button.secondary { background:transparent; color:var(--accent); border:1px solid var(--border); }
   button:disabled { opacity:.5; cursor:not-allowed; }
-  main { flex:1; display:grid; grid-template-columns:260px 1fr 1fr; overflow:hidden; }
-  @media(max-width:900px){ main{ grid-template-columns:1fr; grid-template-rows:auto 1fr; } #reader{ display:none; } }
+  main { flex:1; display:grid; grid-template-columns:240px 1fr 1fr; overflow:hidden; }
+  @media(max-width:900px){ main{ grid-template-columns:1fr; grid-template-rows:auto 1fr; } #reader{ display:none; } body.reading #list{ display:none; } body.reading #reader{ display:block; } }
   #sources { background:var(--panel); border-right:1px solid var(--border); overflow-y:auto; padding:8px; }
   #sources h2 { font-size:11px; text-transform:uppercase; color:var(--muted); margin:12px 8px 6px; letter-spacing:.5px; }
   .source-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13px; }
   .source-item:hover { background:var(--bg); }
-  .source-item.active { background:#e3f0ff; color:var(--accent); }
+  .source-item.active { background:rgba(10,132,255,.15); color:var(--accent); }
   .source-item .count { margin-left:auto; font-size:11px; background:var(--unread); color:#fff; border-radius:10px; padding:1px 7px; min-width:18px; text-align:center; }
   #list { overflow-y:auto; background:var(--bg); }
-  .article { padding:14px 18px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--panel); display:flex; gap:12px; }
-  .article:hover { background:#fafafa; }
+  .article { padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--panel); display:flex; gap:10px; }
+  .article:hover { background:var(--bg); }
   .article.unread { border-left:3px solid var(--unread); }
   .article.read { opacity:.65; }
   .article .thumb { width:56px; height:56px; border-radius:6px; object-fit:cover; flex-shrink:0; background:var(--bg); }
   .article .body { flex:1; min-width:0; }
   .article .title { font-size:14px; font-weight:600; margin-bottom:4px; line-height:1.35; }
-  .article .meta { font-size:11px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; }
+  .article .meta { font-size:11px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
   .article .snippet { font-size:12px; color:var(--muted); margin-top:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  #reader { background:var(--panel); border-left:1px solid var(--border); overflow-y:auto; padding:24px; }
+  #reader { background:var(--panel); border-left:1px solid var(--border); overflow-y:auto; padding:20px; position:relative; }
   #reader .placeholder { color:var(--muted); text-align:center; margin-top:40%; font-size:14px; }
-  #reader h2 { font-size:20px; margin:0 0 8px; line-height:1.3; }
-  #reader .reader-meta { font-size:12px; color:var(--muted); margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+  #reader .reader-toolbar { display:flex; gap:6px; margin-bottom:12px; }
+  #reader h2 { font-size:19px; margin:0 0 8px; line-height:1.3; }
+  #reader .reader-meta { font-size:12px; color:var(--muted); margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); }
   #reader .reader-body { font-size:14px; line-height:1.6; }
   #reader .reader-body img { max-width:100%; height:auto; border-radius:6px; margin:8px 0; }
   #reader .reader-body a { color:var(--accent); }
   #reader .reader-body figure { margin:12px 0; }
-  #status { padding:6px 16px; font-size:12px; color:var(--muted); background:var(--panel); border-top:1px solid var(--border); min-height:28px; }
+  #status { padding:6px 12px; font-size:11px; color:var(--muted); background:var(--panel); border-top:1px solid var(--border); min-height:26px; }
   #status.error { color:var(--danger); }
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:100; }
+  #status.ok { color:var(--ok); }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:100; padding:16px; }
   .modal-overlay.show { display:flex; }
-  .modal { background:var(--panel); border-radius:12px; padding:24px; width:min(480px,90vw); box-shadow:0 10px 40px rgba(0,0,0,.2); }
+  .modal { background:var(--panel); border-radius:12px; padding:20px; width:min(520px,100%); max-height:85vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,.3); }
   .modal h3 { margin:0 0 12px; font-size:16px; }
   .modal p { font-size:13px; color:var(--muted); line-height:1.5; }
-  .modal input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; margin:8px 0 16px; }
-  .modal .actions { display:flex; gap:8px; justify-content:flex-end; }
+  .modal input, .modal textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; margin:8px 0 12px; background:var(--bg); color:var(--text); font-family:inherit; }
+  .modal textarea { min-height:100px; resize:vertical; }
+  .modal .actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+  .idea { padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size:13px; }
+  .idea.done { opacity:.6; }
+  .idea .text { white-space:pre-wrap; line-height:1.4; margin-bottom:6px; }
+  .idea .idea-actions { display:flex; gap:6px; }
+  .idea .idea-actions button { padding:4px 8px; font-size:11px; }
+  .back-btn { display:none; }
+  @media(max-width:900px){ body.reading .back-btn { display:inline-block; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>📰 Mi Lector RSS</h1>
+  <button class="secondary back-btn" onclick="document.body.classList.remove('reading')">←</button>
+  <h1>📰 Mi Lector</h1>
   <button id="addSourceBtn" class="secondary">+ Fuente</button>
-  <button id="refreshBtn" class="secondary">Actualizar</button>
-  <button id="markAllBtn" class="secondary">Marcar todo leído</button>
+  <button id="refreshBtn" class="secondary">⟳</button>
+  <button id="exportBtn" class="secondary" title="Exportar guardados">📤</button>
+  <button id="importBtn" class="secondary" title="Importar guardados">📥</button>
+  <button id="ideasBtn" class="secondary" title="Ideas">💡</button>
+  <input type="file" id="importFile" accept=".json" style="display:none">
 </header>
 <main>
   <aside id="sources"><h2>Fuentes</h2><div id="sourceList"></div></aside>
@@ -64,10 +81,11 @@
 </main>
 <div id="status">Cargando…</div>
 
+<!-- Modal añadir fuente -->
 <div class="modal-overlay" id="addModal">
   <div class="modal">
     <h3>Añadir fuente</h3>
-    <p>Pega la URL del feed RSS o Atom. Se guardará <strong>solo en este navegador</strong>. Para que aparezca para todos los usuarios, añádela en <code>scripts/update-feeds.js</code> del repositorio.</p>
+    <p>Se guarda <strong>solo en este navegador</strong>. Para hacerla permanente, añádela en <code>scripts/update-feeds.js</code> del repositorio.</p>
     <input id="newSourceUrl" type="text" placeholder="https://ejemplo.com/feed.xml">
     <div class="actions">
       <button class="secondary" onclick="document.getElementById('addModal').classList.remove('show')">Cancelar</button>
@@ -76,94 +94,205 @@
   </div>
 </div>
 
+<!-- Modal ideas -->
+<div class="modal-overlay" id="ideasModal">
+  <div class="modal">
+    <h3>💡 Ideas de mejora</h3>
+    <textarea id="ideaText" placeholder="Escribe una idea… (puedes usar varias líneas)"></textarea>
+    <div class="actions" style="margin-bottom:12px">
+      <button onclick="saveIdea()">Guardar idea</button>
+    </div>
+    <div id="ideasList"></div>
+    <div class="actions" style="margin-top:12px">
+      <button class="secondary" onclick="document.getElementById('ideasModal').classList.remove('show')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const state = { sources: [], articles: [], read: new Set(), localSources: [], activeSource: null, activeArticle: null };
+/* ============ ESTADO ============ */
+const state = {
+  sources: [], articles: [], read: new Set(),
+  localSources: [],
+  saved: new Map(), // id -> artículo guardado
+  activeSource: null, viewMode: 'all', // 'all' | 'saved' | sourceUrl
+  activeArticle: null,
+};
+
+/* ============ INDEXEDDB ============ */
+let db = null;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('mi_lector_db', 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('guardados')) {
+        d.createObjectStore('guardados', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+function dbPut(article) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction('guardados', 'readwrite');
+    tx.objectStore('guardados').put(article);
+    tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+  });
+}
+function dbDelete(id) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction('guardados', 'readwrite');
+    tx.objectStore('guardados').delete(id);
+    tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+  });
+}
+function dbGetAll() {
+  return new Promise((res, rej) => {
+    const tx = db.transaction('guardados', 'readonly');
+    const req = tx.objectStore('guardados').getAll();
+    req.onsuccess = () => res(req.result || []);
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+/* ============ PERSISTENCIA SIMPLE ============ */
+const LS_READ = 'rss_read_v1';
+const LS_LOCAL_SOURCES = 'rss_local_sources_v1';
+const LS_IDEAS = 'rss_ideas_v1';
+
+function saveRead() { localStorage.setItem(LS_READ, JSON.stringify([...state.read])); }
+function saveLocalSources() { localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources)); }
+
+/* ============ UTILIDADES ============ */
 const $sources = document.getElementById('sourceList');
 const $list = document.getElementById('list');
 const $reader = document.getElementById('reader');
 const $status = document.getElementById('status');
-const $refresh = document.getElementById('refreshBtn');
-const $markAll = document.getElementById('markAllBtn');
-const $addBtn = document.getElementById('addSourceBtn');
 
-function setStatus(msg, isError=false){ $status.textContent = msg; $status.className = isError ? 'error' : ''; }
+function setStatus(msg, type='') { $status.textContent = msg; $status.className = type; }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function sourceTitle(url){ const s = [...state.sources, ...state.localSources].find(x=>x.url===url); return s?.title || url; }
+function sourceTitle(url){ const s=[...state.sources,...state.localSources].find(x=>x.url===url); return s?.title || url; }
 function formatDate(iso){ const d=new Date(iso); if(isNaN(d)) return ''; const diff=(Date.now()-d)/60000; if(diff<60) return `hace ${Math.max(1,Math.round(diff))} min`; if(diff<60*24) return `hace ${Math.round(diff/60)} h`; return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'}); }
+function firstImage(html){ if(!html) return null; const m=html.match(/<img[^>]+src="([^"]+)"/i); return m?m[1]:null; }
 
-function firstImage(html) {
-  if (!html) return null;
-  const m = html.match(/<img[^>]+src="([^"]+)"/i);
-  return m ? m[1] : null;
-}
+/* ============ RENDER FUENTES ============ */
+function renderSources() {
+  $sources.innerHTML = '';
+  const mk = (label, mode, count) => {
+    const div = document.createElement('div');
+    div.className = 'source-item' + (state.viewMode === mode ? ' active' : '');
+    div.innerHTML = `<span>${label}</span>${count ? `<span class="count">${count}</span>` : ''}`;
+    return div;
+  };
+  const allItem = mk('🗂️ Todas', 'all',
+    state.articles.filter(a => !state.read.has(a.id)).length);
+  allItem.onclick = () => { state.viewMode = 'all'; renderSources(); renderList(); };
+  $sources.appendChild(allItem);
 
-function renderSources(){
-  $sources.innerHTML='';
-  const all=document.createElement('div');
-  all.className='source-item'+(state.activeSource===null?' active':'');
-  all.innerHTML='<span>🗂️ Todas</span>';
-  all.onclick=()=>{state.activeSource=null;renderSources();renderList();};
-  $sources.appendChild(all);
+  const savedItem = mk('💾 Guardados', 'saved', state.saved.size);
+  savedItem.onclick = () => { state.viewMode = 'saved'; renderSources(); renderList(); };
+  $sources.appendChild(savedItem);
+
+  const h2 = document.createElement('h2');
+  h2.textContent = 'Fuentes';
+  $sources.appendChild(h2);
+
   const allSources = [...state.sources, ...state.localSources];
-  allSources.forEach(s=>{
-    const unread=state.articles.filter(a=>a.sourceUrl===s.url&&!state.read.has(a.id)).length;
-    const div=document.createElement('div');
-    div.className='source-item'+(state.activeSource===s.url?' active':'');
-    div.innerHTML=`<span>📡 ${escapeHtml(s.title||s.url)}</span>${unread?`<span class="count">${unread}</span>`:''}`;
-    div.onclick=()=>{state.activeSource=s.url;renderSources();renderList();};
+  allSources.forEach(s => {
+    const unread = state.articles.filter(a => a.sourceUrl === s.url && !state.read.has(a.id)).length;
+    const div = document.createElement('div');
+    div.className = 'source-item' + (state.viewMode === s.url ? ' active' : '');
+    div.innerHTML = `<span>📡 ${escapeHtml(s.title || s.url)}</span>${unread ? `<span class="count">${unread}</span>` : ''}`;
+    div.onclick = () => { state.viewMode = s.url; renderSources(); renderList(); };
     $sources.appendChild(div);
   });
 }
 
-function renderList(){
-  let items=state.articles;
-  if(state.activeSource) items=items.filter(a=>a.sourceUrl===state.activeSource);
-  items=[...items].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(!items.length){ $list.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">No hay artículos.</div>'; return; }
-  $list.innerHTML='';
-  items.forEach(a=>{
-    const read=state.read.has(a.id);
-    const thumb=firstImage(a.content);
-    const el=document.createElement('div');
-    el.className='article '+(read?'read':'unread');
-    el.innerHTML=`
-      ${thumb?`<img class="thumb" src="${escapeHtml(thumb)}" loading="lazy" onerror="this.style.display='none'">`:''}
+/* ============ RENDER LISTA ============ */
+function renderList() {
+  let items;
+  if (state.viewMode === 'saved') items = [...state.saved.values()];
+  else {
+    items = state.articles;
+    if (state.viewMode !== 'all') items = items.filter(a => a.sourceUrl === state.viewMode);
+  }
+  items = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (!items.length) {
+    $list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">No hay artículos.</div>';
+    return;
+  }
+  $list.innerHTML = '';
+  items.forEach(a => {
+    const read = state.read.has(a.id);
+    const thumb = firstImage(a.content);
+    const isSaved = state.saved.has(a.id);
+    const el = document.createElement('div');
+    el.className = 'article ' + (read ? 'read' : 'unread');
+    el.innerHTML = `
+      ${thumb ? `<img class="thumb" src="${escapeHtml(thumb)}" loading="lazy" onerror="this.style.display='none'">` : ''}
       <div class="body">
-        <div class="title">${escapeHtml(a.title)}</div>
+        <div class="title">${isSaved ? '💾 ' : ''}${escapeHtml(a.title)}</div>
         <div class="meta">
           <span>${escapeHtml(sourceTitle(a.sourceUrl))}</span>
           <span>${formatDate(a.date)}</span>
-          ${a.content&&a.content.length>500?'<span style="color:#34c759">● completo</span>':''}
         </div>
         <div class="snippet">${escapeHtml(a.snippet)}</div>
       </div>`;
-    el.onclick=()=>openArticle(a);
+    el.onclick = () => openArticle(a);
     $list.appendChild(el);
   });
 }
 
-function openArticle(a){
-  state.activeArticle=a;
-  state.read.add(a.id);
-  localStorage.setItem('rss_read_v1', JSON.stringify([...state.read]));
+/* ============ ABRIR ARTÍCULO ============ */
+function openArticle(a) {
+  state.activeArticle = a;
+  state.read.add(a.id); saveRead();
+  document.body.classList.add('reading');
   renderSources(); renderList();
+
+  const isSaved = state.saved.has(a.id);
   const hasFull = a.content && a.content.length > 500;
   const body = hasFull
     ? sanitizeHtml(a.content)
     : `<p>${escapeHtml(a.snippet)}</p><p style="color:var(--muted);font-size:13px;">Este feed solo trae un resumen. <a href="${escapeHtml(a.link)}" target="_blank">Leer el artículo completo en el sitio original →</a></p>`;
-  $reader.innerHTML=`<h2>${escapeHtml(a.title)}</h2><div class="reader-meta">${escapeHtml(sourceTitle(a.sourceUrl))} · ${formatDate(a.date)} · <a href="${escapeHtml(a.link)}" target="_blank">Abrir original</a></div><div class="reader-body">${body}</div>`;
-  $reader.scrollTop=0;
+
+  $reader.innerHTML = `
+    <div class="reader-toolbar">
+      <button class="secondary" id="saveBtn">${isSaved ? '💾 Guardado ✓' : '💾 Guardar'}</button>
+      <a href="${escapeHtml(a.link)}" target="_blank"><button class="secondary">↗ Original</button></a>
+    </div>
+    <h2>${escapeHtml(a.title)}</h2>
+    <div class="reader-meta">${escapeHtml(sourceTitle(a.sourceUrl))} · ${formatDate(a.date)}</div>
+    <div class="reader-body">${body}</div>
+  `;
+  $reader.scrollTop = 0;
+
+  document.getElementById('saveBtn').onclick = async () => {
+    if (state.saved.has(a.id)) {
+      await dbDelete(a.id);
+      state.saved.delete(a.id);
+      setStatus('Artículo eliminado de guardados.', 'ok');
+    } else {
+      const toSave = { ...a, sourceTitle: sourceTitle(a.sourceUrl), savedAt: new Date().toISOString() };
+      await dbPut(toSave);
+      state.saved.set(a.id, toSave);
+      setStatus('Artículo guardado en el dispositivo.', 'ok');
+    }
+    renderSources(); renderList(); openArticle(a);
+  };
 }
 
-function sanitizeHtml(html){
-  const allowed=new Set(['P','BR','A','STRONG','EM','B','I','U','UL','OL','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE','IMG','FIGURE','FIGCAPTION','CODE','PRE','HR','SPAN','DIV','TABLE','THEAD','TBODY','TR','TD','TH']);
-  const tpl=document.createElement('template'); tpl.innerHTML=html;
-  const walk=node=>{
-    [...node.children].forEach(child=>{
-      if(!allowed.has(child.tagName)){ child.replaceWith(...child.childNodes); return; }
-      [...child.attributes].forEach(attr=>{
-        if(attr.name.startsWith('on')) child.removeAttribute(attr.name);
-        if(child.tagName==='IMG' && attr.name==='src' && !/^https?:/i.test(attr.value) && !attr.value.startsWith('data:')) child.removeAttribute('src');
+function sanitizeHtml(html) {
+  const allowed = new Set(['P','BR','A','STRONG','EM','B','I','U','UL','OL','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE','IMG','FIGURE','FIGCAPTION','CODE','PRE','HR','SPAN','DIV','TABLE','THEAD','TBODY','TR','TD','TH']);
+  const tpl = document.createElement('template'); tpl.innerHTML = html;
+  const walk = node => {
+    [...node.children].forEach(child => {
+      if (!allowed.has(child.tagName)) { child.replaceWith(...child.childNodes); return; }
+      [...child.attributes].forEach(attr => {
+        if (attr.name.startsWith('on')) child.removeAttribute(attr.name);
+        if (child.tagName === 'IMG' && attr.name === 'src' && !/^https?:/i.test(attr.value) && !attr.value.startsWith('data:')) child.removeAttribute('src');
       });
       walk(child);
     });
@@ -171,37 +300,98 @@ function sanitizeHtml(html){
   walk(tpl.content); return tpl.innerHTML;
 }
 
-async function loadData(){
+/* ============ CARGA INICIAL ============ */
+async function loadData() {
   setStatus('Cargando datos…');
-  try{
-    const res=await fetch('data/feeds.json?t='+Date.now());
-    if(!res.ok) throw new Error('No se pudo cargar data/feeds.json');
-    const data=await res.json();
-    state.sources=data.sources||[];
-    state.articles=data.articles||[];
+  try {
+    const res = await fetch('data/feeds.json?t=' + Date.now());
+    if (!res.ok) throw new Error('No se pudo cargar data/feeds.json');
+    const data = await res.json();
+    state.sources = data.sources || [];
+    state.articles = data.articles || [];
     setStatus(`Listo. ${state.sources.length} fuentes, ${state.articles.length} artículos.`);
-  }catch(e){ setStatus('Error: '+e.message, true); }
-  try{ const saved=localStorage.getItem('rss_read_v1'); if(saved) state.read=new Set(JSON.parse(saved)); }catch(e){}
-  try{ const local=localStorage.getItem('rss_local_sources_v1'); if(local) state.localSources=JSON.parse(local); }catch(e){}
+  } catch (e) { setStatus('Error: ' + e.message, 'error'); }
+
+  try { const s = localStorage.getItem(LS_READ); if (s) state.read = new Set(JSON.parse(s)); } catch(e){}
+  try { const s = localStorage.getItem(LS_LOCAL_SOURCES); if (s) state.localSources = JSON.parse(s); } catch(e){}
+
+  try {
+    const savedArr = await dbGetAll();
+    state.saved = new Map(savedArr.map(x => [x.id, x]));
+  } catch (e) { console.warn('IndexedDB no disponible', e); }
+
   renderSources(); renderList();
 }
 
-$refresh.onclick=()=>loadData();
-$markAll.onclick=()=>{ const items=state.activeSource?state.articles.filter(a=>a.sourceUrl===state.activeSource):state.articles; items.forEach(a=>state.read.add(a.id)); localStorage.setItem('rss_read_v1',JSON.stringify([...state.read])); renderSources(); renderList(); };
-$addBtn.onclick=()=>{ document.getElementById('addModal').classList.add('show'); document.getElementById('newSourceUrl').focus(); };
+/* ============ ACCIONES ============ */
+document.getElementById('refreshBtn').onclick = () => loadData();
+document.getElementById('addSourceBtn').onclick = () => {
+  document.getElementById('addModal').classList.add('show');
+  document.getElementById('newSourceUrl').focus();
+};
 window.confirmAddSource = () => {
   const url = document.getElementById('newSourceUrl').value.trim();
-  if(!url) return;
+  if (!url) return;
   const title = new URL(url).hostname;
   state.localSources.push({ url, title });
-  localStorage.setItem('rss_local_sources_v1', JSON.stringify(state.localSources));
+  saveLocalSources();
   document.getElementById('addModal').classList.remove('show');
-  document.getElementById('newSourceUrl').value='';
-  setStatus(`Fuente local añadida: ${title}. Para ver sus artículos, añádela también en scripts/update-feeds.js y ejecuta la Action.`);
+  document.getElementById('newSourceUrl').value = '';
+  setStatus(`Fuente local añadida: ${title}. Para ver sus artículos, añádela en scripts/update-feeds.js.`, 'ok');
   renderSources();
 };
 
-loadData();
-</script>
-</body>
-</html>
+/* ============ EXPORTAR / IMPORTAR ============ */
+document.getElementById('exportBtn').onclick = async () => {
+  const arr = await dbGetAll();
+  if (!arr.length) { setStatus('No hay artículos guardados para exportar.', 'error'); return; }
+  const blob = new Blob([JSON.stringify({ version: 1, savedAt: new Date().toISOString(), articles: arr }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mi_lector_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus(`Exportados ${arr.length} artículos.`, 'ok');
+};
+
+document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const arr = Array.isArray(data) ? data : (data.articles || []);
+    if (!arr.length) { setStatus('El archivo no contiene artículos.', 'error'); return; }
+    for (const art of arr) {
+      if (art.id) await dbPut(art);
+    }
+    const savedArr = await dbGetAll();
+    state.saved = new Map(savedArr.map(x => [x.id, x]));
+    setStatus(`Importados ${arr.length} artículos.`, 'ok');
+    renderSources(); renderList();
+  } catch (e) { setStatus('Error importando: ' + e.message, 'error'); }
+  e.target.value = '';
+};
+
+/* ============ IDEAS ============ */
+document.getElementById('ideasBtn').onclick = () => {
+  renderIdeas();
+  document.getElementById('ideasModal').classList.add('show');
+};
+function getIdeas() { try { return JSON.parse(localStorage.getItem(LS_IDEAS) || '[]'); } catch { return []; } }
+function setIdeas(arr) { localStorage.setItem(LS_IDEAS, JSON.stringify(arr)); }
+window.saveIdea = () => {
+  const text = document.getElementById('ideaText').value.trim();
+  if (!text) return;
+  const ideas = getIdeas();
+  ideas.push({ id: 'i' + Date.now(), text, done: false, createdAt: new Date().toISOString() });
+  setIdeas(ideas);
+  document.getElementById('ideaText').value = '';
+  renderIdeas();
+};
+function renderIdeas() {
+  const ideas = getIdeas();
+  const cont = document.getElementById('ideasList');
+  if (!ideas.length) { cont.innerHTML = '<p style="text-align:center;padding:12px">Aún no hay ideas.</p
