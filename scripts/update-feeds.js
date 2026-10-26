@@ -3,14 +3,27 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { Readability } = require('@mozilla/readability');
 
-const SOURCES = [
-  { url: 'https://www.xataka.com/feedburner.xml', title: 'Xataka', category: 'Tecnología' },
-  { url: 'https://hnrss.org/frontpage', title: 'Hacker News', category: 'Tecnología' },
-  { url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', title: 'El País', category: 'Noticias' },
-  { url: 'https://www.microsiervos.com/index.xml', title: 'Microsiervos', category: 'Tecnología' },
-];
+// Buscamos el archivo sources.txt en la raíz
+const sourcesPath = path.join(__dirname, '..', 'sources.txt');
+let SOURCES = [];
 
-const MAX_ARTICLES_PER_SOURCE = 15; // Bajado un poco para que vaya más rápido
+if (fs.existsSync(sourcesPath)) {
+  const lines = fs.readFileSync(sourcesPath, 'utf8').split('\n');
+  lines.forEach(line => {
+    const parts = line.split('|').map(p => p.trim());
+    if (parts[0]) {
+      SOURCES.push({ 
+        url: parts[0], 
+        title: parts[1] || parts[0], 
+        category: parts[2] || 'General' 
+      });
+    }
+  });
+} else {
+  console.log("⚠️ No se encontró sources.txt. Crea uno con las fuentes.");
+}
+
+const MAX_ARTICLES_PER_SOURCE = 15;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 
 function stripHtml(html) { return (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
@@ -63,6 +76,7 @@ async function extractWithReadability(url) {
 }
 
 async function main() {
+  if (SOURCES.length === 0) return;
   const allArticles = [];
   const validSources = [];
 
@@ -95,7 +109,7 @@ async function main() {
   allArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
   const trimmed = allArticles.slice(0, 2000);
 
-  const out = { version: "0.3.1", sources: validSources, articles: trimmed, updatedAt: new Date().toISOString() };
+  const out = { version: "0.8", sources: validSources, articles: trimmed, updatedAt: new Date().toISOString() };
   const outPath = path.join(__dirname, '..', 'data', 'feeds.json');
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
