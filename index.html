@@ -3,14 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mi Lector RSS - v0.9</title>
+<title>Mi Lector RSS - v1.0</title>
 <style>
   :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; --favorite:#ffcc00; --reader-size:16px; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#1c1c1e; --panel:#2c2c2e; --border:#3a3a3c; --text:#f2f2f7; --muted:#8e8e93; --accent:#0a84ff; }
+  
+  /* Modo Oscuro Manual */
+  body.dark-mode {
+    --bg:#1c1c1e; --panel:#2c2c2e; --border:#3a3a3c; --text:#f2f2f7; --muted:#8e8e93; --accent:#0a84ff;
   }
+  /* Modo Oscuro Automático */
+  @media (prefers-color-scheme: dark) {
+    body:not(.light-mode) {
+      --bg:#1c1c1e; --panel:#2c2c2e; --border:#3a3a3c; --text:#f2f2f7; --muted:#8e8e93; --accent:#0a84ff;
+    }
+  }
+
   * { box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; transition: background 0.3s, color 0.3s; }
   
   header { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; height:52px; }
   header h1 { font-size:16px; margin:0; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
@@ -19,10 +28,10 @@
   button.icon { padding:8px; background:transparent; color:var(--text); border:none; font-size:18px; }
   button.danger { background:var(--danger); color:#fff; }
   button:disabled { opacity:.5; cursor:not-allowed; }
+  button.active { background:var(--accent); color:white; border-color:var(--accent); }
   
   main { flex:1; display:flex; position:relative; overflow:hidden; }
   
-  /* Drawer */
   #drawer { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--panel); z-index:100; transition:left 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; border-right:1px solid var(--border); box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
   #drawer.open { left:0; }
   .drawer-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
@@ -31,7 +40,6 @@
   .drawer-search input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 14px; }
   .drawer-content { flex:1; overflow-y:auto; padding:8px; }
   
-  /* Menú de opciones del drawer */
   .drawer-menu { position: relative; }
   .drawer-menu-content { display: none; position: absolute; right: 0; top: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 150; min-width: 200px; flex-direction: column; padding: 8px; gap: 4px; }
   .drawer-menu.open .drawer-menu-content { display: flex; }
@@ -47,7 +55,6 @@
   .source-item .count { margin-left:auto; font-size:11px; background:var(--unread); color:#fff; border-radius:10px; padding:2px 8px; font-weight:600; }
   .source-item .edit-btn { margin-left:4px; font-size:16px; color:var(--muted); opacity:0.6; padding:4px; }
   
-  /* Lista */
   #list-container { flex:1; overflow-y:auto; background:var(--bg); width:100%; max-width: 100%; }
   @media(min-width:900px) { #list-container { max-width: 450px; border-right: 1px solid var(--border); } }
   
@@ -64,7 +71,6 @@
   .article .snippet { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .article .delete-btn { position:absolute; top:10px; right:10px; color:var(--danger); background:none; border:none; font-size:16px; padding:0; cursor:pointer; z-index:5; }
   
-  /* Lector */
   #reader-container { display:none; flex:1; background:var(--panel); overflow-y:auto; flex-direction:column; }
   @media(min-width:900px) { 
     #list-container { display:block !important; } 
@@ -98,7 +104,6 @@
   .modal textarea { min-height:120px; resize:vertical; }
   .modal .actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:12px; }
   
-  /* Ideas */
   .idea { padding:12px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size:14px; }
   .idea.done { opacity:.6; }
   .idea .text { white-space:pre-wrap; line-height:1.4; margin-bottom:8px; }
@@ -113,7 +118,6 @@
   .help-box code { background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 4px; font-family: monospace; }
   .feed-editor-textarea { font-family: monospace; font-size: 13px; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
   
-  /* Prompt List */
   .prompt-item { display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; cursor:pointer; }
   .prompt-item:hover { background:var(--bg); }
   .prompt-item .del-prompt { color:var(--danger); font-size:16px; padding:4px; cursor:pointer; }
@@ -124,6 +128,7 @@
 <header>
   <button class="icon" onclick="toggleDrawer()">☰</button>
   <h1 id="currentViewTitle">Todas</h1>
+  <button class="icon" id="filterBtn" onclick="toggleUnreadFilter()" title="Filtrar no leídos">👁️</button>
   <button class="icon" id="searchBtn" onclick="toggleSearch()" title="Buscar">🔍</button>
   <button class="icon" onclick="confirmMarkAllRead()" title="Marcar todo leído">✓</button>
   <button class="icon" onclick="loadData()" title="Recargar">⟳</button>
@@ -159,6 +164,7 @@
         <button class="secondary" onclick="openDiscoverModal(); toggleDrawer();">🔍 Descubrir Feed</button>
         <button class="secondary" onclick="document.getElementById('opmlFile').click(); toggleDrawer();">📥 Importar OPML</button>
         <button class="secondary" onclick="openFeedEditor(); toggleDrawer();">⚙️ Editor de Feeds</button>
+        <button class="secondary" onclick="toggleTheme(); toggleDrawer();" id="themeToggleBtn">🌙 Modo Oscuro</button>
         <button class="secondary" onclick="exportBackup()">📤 Exportar JSON</button>
         <button class="secondary" onclick="document.getElementById('importFile').click()">📥 Importar JSON</button>
         <button class="secondary" onclick="document.getElementById('ideasModal').classList.add('show'); toggleDrawer();">💡 Ideas</button>
@@ -182,7 +188,7 @@
     <span id="statusText">Cargando…</span>
     <button id="undoBtn" class="undo-btn" style="display:none" onclick="undoAction()">Deshacer</button>
   </div>
-  <span class="version-tag">v0.9</span>
+  <span class="version-tag">v1.0</span>
 </div>
 
 <!-- Modales -->
@@ -236,6 +242,7 @@
       <div style="display:flex; gap:8px;">
         <button class="secondary" onclick="copyFeedEditor()">📋 Copiar</button>
         <button class="secondary" onclick="restoreHidden()">👁️ Restaurar ocultas</button>
+        <button class="secondary" onclick="window.open('https://github.com/tuusuario/turepositorio/edit/main/sources.txt', '_blank')">🔗 Ir a GitHub</button>
       </div>
       <div style="display:flex; gap:8px;">
         <button class="secondary" onclick="document.getElementById('feedEditorModal').classList.remove('show')">Cancelar</button>
@@ -263,7 +270,6 @@
   </div>
 </div>
 
-<!-- Menú Lector y opciones de IA -->
 <div class="modal-overlay" id="readerMenuModal">
   <div class="modal">
     <h3>Opciones del artículo</h3>
@@ -312,7 +318,7 @@
 const state = {
   sources: [], articles: [], read: new Set(), favorites: new Set(),
   localSources: [], saved: new Map(),
-  activeSource: null, viewMode: 'all', showOnlyFavorites: false,
+  activeSource: null, viewMode: 'all', showOnlyFavorites: false, showOnlyUnread: false,
   activeArticle: null,
   collapsedCategories: new Set(),
   searchTerm: '',
@@ -349,7 +355,7 @@ function dbPut(a) { return new Promise((res, rej) => { const tx = db.transaction
 function dbDelete(id) { return new Promise((res, rej) => { const tx = db.transaction('guardados', 'readwrite'); tx.objectStore('guardados').delete(id); tx.oncomplete = res; tx.onerror = e => rej(e.target.error); }); }
 function dbGetAll() { return new Promise((res, rej) => { const tx = db.transaction('guardados', 'readonly'); const req = tx.objectStore('guardados').getAll(); req.onsuccess = () => res(req.result || []); req.onerror = e => rej(e.target.error); }); }
 
-const LS_READ = 'rss_read_v1'; const LS_FAVS = 'rss_favs_v1'; const LS_LOCAL_SOURCES = 'rss_local_sources_v1'; const LS_IDEAS = 'rss_ideas_v1'; const LS_PROMPTS = 'rss_prompts_v1'; const LS_FONT = 'rss_font_v1';
+const LS_READ = 'rss_read_v1'; const LS_FAVS = 'rss_favs_v1'; const LS_LOCAL_SOURCES = 'rss_local_sources_v1'; const LS_IDEAS = 'rss_ideas_v1'; const LS_PROMPTS = 'rss_prompts_v1'; const LS_FONT = 'rss_font_v1'; const LS_THEME = 'rss_theme_v1';
 
 const $list = document.getElementById('list-container');
 const $readerContent = document.getElementById('readerContent');
@@ -359,6 +365,7 @@ const $viewTitle = document.getElementById('currentViewTitle');
 const $undoBtn = document.getElementById('undoBtn');
 const $searchBar = document.getElementById('searchBar');
 const $searchInput = document.getElementById('searchInput');
+const $filterBtn = document.getElementById('filterBtn');
 
 function setStatus(msg, type='') { 
   $statusText.textContent = msg; 
@@ -395,6 +402,19 @@ $searchInput.addEventListener('input', (e) => {
   state.searchTerm = e.target.value.toLowerCase();
   renderList();
 });
+
+function toggleUnreadFilter() {
+  state.showOnlyUnread = !state.showOnlyUnread;
+  $filterBtn.classList.toggle('active', state.showOnlyUnread);
+  renderList();
+}
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark-mode');
+  document.body.classList.toggle('light-mode', !isDark);
+  localStorage.setItem(LS_THEME, isDark ? 'dark' : 'light');
+  document.getElementById('themeToggleBtn').textContent = isDark ? '☀️ Modo Claro' : '🌙 Modo Oscuro';
+}
 
 function renderSources() {
   $drawerSources.innerHTML = '';
@@ -470,6 +490,8 @@ function renderList() {
     if (state.viewMode !== 'all') items = items.filter(a => a.sourceUrl === state.viewMode);
     if (state.showOnlyFavorites) items = items.filter(a => state.favorites.has(a.id));
   }
+  
+  if (state.showOnlyUnread) items = items.filter(a => !state.read.has(a.id));
   
   if (state.searchTerm) {
     items = items.filter(a => a.title.toLowerCase().includes(state.searchTerm) || a.snippet.toLowerCase().includes(state.searchTerm));
@@ -607,7 +629,6 @@ function sanitizeHtml(html) {
   walk(tpl.content); return tpl.innerHTML;
 }
 
-// Lógica de Prompts IA
 window.openAIModal = () => {
   if (!state.activeArticle) return;
   renderPrompts();
@@ -887,6 +908,19 @@ async function loadData() {
   try { const s = localStorage.getItem(LS_FAVS); if (s) state.favorites = new Set(JSON.parse(s)); } catch(e){}
   try { const s = localStorage.getItem(LS_LOCAL_SOURCES); if (s) state.localSources = JSON.parse(s); } catch(e){}
   try { const s = localStorage.getItem(LS_FONT); if (s) { state.readerFontSize = parseInt(s); document.documentElement.style.setProperty('--reader-size', state.readerFontSize + 'px'); } } catch(e){}
+  
+  // Cargar Tema
+  try {
+    const theme = localStorage.getItem(LS_THEME);
+    if (theme === 'dark') {
+      document.body.classList.add('dark-mode'); document.body.classList.remove('light-mode');
+      document.getElementById('themeToggleBtn').textContent = '☀️ Modo Claro';
+    } else if (theme === 'light') {
+      document.body.classList.add('light-mode'); document.body.classList.remove('dark-mode');
+      document.getElementById('themeToggleBtn').textContent = '🌙 Modo Oscuro';
+    }
+  } catch(e){}
+
   try { const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x])); } catch (e) {}
 
   updateViewTitle();
