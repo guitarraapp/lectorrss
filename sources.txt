@@ -1,4 +1,22 @@
 https://www.xataka.com/feedburner.xml | Xataka | Tecnología
-https://hnrss.org/frontpage | Hacker News | Tecnología
 https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada | El País | Noticias
 https://www.microsiervos.com/index.xml | Microsiervos | Tecnología
+https://www.informacion.es/rss/section/7034 | Información - Alicante | General
+https://www.antena3.com/noticias/rss/4013050.xml | Noticias hoy: Última hora en España y el mundo en Antena 3 Noticias | General
+https://www.elcampello.es/rss.php?s=agenda | ELCAMPELLO.es - RSS - Agenda | General
+https://www.lasprovincias.es/rss/atom/?section=alicante | RSS de noticias de alicante | General
+https://www.lasprovincias.es/rss/2.0/?section=marina-baja | RSS de noticias de Marina Baja | General
+https://www.informacion.es/rss/section/1687098 | Información - Edición El Campello | General
+https://rss.elconfidencial.com/mundo/ | Mundo | General
+https://rss.elconfidencial.com/espana/ | España | General
+https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/ciencia/portada | Feed MRSS-S | General
+https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/tecnologia/portada | Feed MRSS-S | General
+https://www.lasprovincias.es/rss/2.0/?section=alcoia | RSS de noticias de Alcoia | General
+https://www.informacion.es/rss/section/7037 | Información - Alcoy | General
+https://cincodias.elpais.com/rss/cincodias/portada.xml | Portada de Cinco Días | EL PAÍS | General
+https://hipertextual.com/productividad/feed/ | Productividad: Noticias, análisis, opiniones y novedades | Hipertextual | General
+https://pagina66.com/coverrss | Pagina 66 | General
+https://wwwhatsnew.com/feed/ | Wwwhat's new? | General
+https://www.tuexperto.com/feed/ | tuexperto.com | General
+https://www.elespanol.com/rss/ | El Español - Home | Noticias
+https://www.trecebits.com/feed/ | TreceBits | Tecnología
