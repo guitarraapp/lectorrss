@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mi Lector RSS - v0.7.1</title>
+<title>Mi Lector RSS - v0.8</title>
 <style>
   :root { --bg:#f5f5f7; --panel:#fff; --border:#e0e0e5; --text:#1c1c1e; --muted:#8e8e93; --accent:#0a84ff; --unread:#0a84ff; --danger:#ff3b30; --ok:#34c759; --favorite:#ffcc00; }
   @media (prefers-color-scheme: dark) {
@@ -42,11 +42,9 @@
   @media(min-width:900px) { #list-container { max-width: 450px; border-right: 1px solid var(--border); } }
   
   .article-wrapper { position:relative; overflow:hidden; border-bottom:1px solid var(--border); background:var(--panel); }
-  
   .article { padding:10px 14px; cursor:pointer; background:var(--panel); display:flex; gap:10px; position:relative; transition:transform 0.15s ease-out; width:100%; z-index:2; border-top: 3px solid transparent; }
   .article.is-fav { border-top-color: rgba(255, 204, 0, 0.4); }
   .article.is-read { border-top-color: rgba(10, 132, 255, 0.3); }
-  
   .article:hover { background:var(--bg); }
   .article.read { opacity:.65; }
   .article .thumb { width:48px; height:48px; border-radius:6px; object-fit:cover; flex-shrink:0; background:var(--bg); }
@@ -65,9 +63,7 @@
   
   .reader-header { position:sticky; top:0; background:var(--panel); padding:10px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; z-index:10; }
   .reader-header .title { font-size:15px; font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  
   .reader-content { padding:20px; max-width:800px; margin:0 auto; width:100%; }
-  .reader-toolbar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
   .reader-content h2 { font-size:22px; margin:0 0 12px; line-height:1.3; }
   .reader-meta { font-size:13px; color:var(--muted); margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
   .reader-body { font-size:16px; line-height:1.7; }
@@ -138,13 +134,16 @@
   <div class="drawer-content" id="drawerSources"></div>
   <div class="drawer-footer">
     <button class="secondary" onclick="openAddModal(); toggleDrawer();">+ Añadir Fuente</button>
+    <button class="secondary" onclick="openDiscoverModal(); toggleDrawer();">🔍 Descubrir Feed</button>
+    <button class="secondary" onclick="document.getElementById('opmlFile').click(); toggleDrawer();">📥 Importar OPML</button>
     <button class="secondary" onclick="openFeedEditor(); toggleDrawer();">⚙️ Editor de Feeds</button>
     <div style="display:flex; gap:8px;">
-      <button class="secondary" style="flex:1" onclick="exportBackup()">📤 Exportar</button>
-      <button class="secondary" style="flex:1" onclick="document.getElementById('importFile').click()">📥 Importar</button>
+      <button class="secondary" style="flex:1" onclick="exportBackup()">📤 Exportar JSON</button>
+      <button class="secondary" style="flex:1" onclick="document.getElementById('importFile').click()">📥 Importar JSON</button>
     </div>
     <button class="secondary" onclick="document.getElementById('ideasModal').classList.add('show'); toggleDrawer();">💡 Ideas de Mejora</button>
     <input type="file" id="importFile" accept=".json" style="display:none">
+    <input type="file" id="opmlFile" accept=".opml,.xml" style="display:none">
   </div>
 </div>
 
@@ -153,14 +152,13 @@
     <span id="statusText">Cargando…</span>
     <button id="undoBtn" class="undo-btn" style="display:none" onclick="undoAction()">Deshacer</button>
   </div>
-  <span class="version-tag">v0.7.1</span>
+  <span class="version-tag">v0.8</span>
 </div>
 
 <!-- Modales -->
 <div class="modal-overlay" id="addModal">
   <div class="modal">
     <h3>Añadir fuente local</h3>
-    <p>Se guarda <strong>solo en este navegador</strong>.</p>
     <label>URL del Feed</label>
     <input id="newSourceUrl" type="url" placeholder="https://ejemplo.com/feed.xml">
     <label>Título</label>
@@ -174,20 +172,35 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="discoverModal">
+  <div class="modal">
+    <h3>🔍 Descubrir Feed por Dominio</h3>
+    <p>Escribe la URL principal de la web (ej. <code>https://xataka.com</code>). Intentaremos encontrar su RSS.</p>
+    <input id="discoverUrl" type="url" placeholder="https://ejemplo.com">
+    <div class="actions">
+      <button class="secondary" onclick="document.getElementById('discoverModal').classList.remove('show')">Cancelar</button>
+      <button onclick="doDiscover()">Buscar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="feedEditorModal">
   <div class="modal">
     <h3>⚙️ Editor de Feeds</h3>
     <div class="help-box">
       <strong>¿Cómo actualizar tus fuentes en GitHub?</strong><br>
       1. Pulsa "📋 Copiar todo".<br>
-      2. Ve a tu repositorio en GitHub y abre el archivo <code>scripts/update-feeds.js</code>.<br>
-      3. Pega la lista dentro de los corchetes de <code>SOURCES</code>.<br>
-      4. Haz "Commit changes" y ejecuta la Action.
+      2. Ve a tu repositorio en GitHub y abre el archivo <code>sources.txt</code> (créalo si no existe).<br>
+      3. Pega el texto y haz "Commit changes".<br>
+      4. Ejecuta la Action en GitHub.
     </div>
-    <p>Aquí tienes tus fuentes actuales. Puedes editarlas directamente en este cuadro (una por línea en formato <code>URL | Título | Categoría</code>). Al guardar, se aplicarán a tu app localmente.</p>
+    <p>Formato: <code>URL | Título | Categoría</code> (una por línea).</p>
     <textarea id="feedEditorText" class="feed-editor-textarea" rows="10"></textarea>
     <div class="actions" style="justify-content:space-between; margin-top:16px;">
-      <button class="secondary" onclick="copyFeedEditor()">📋 Copiar todo</button>
+      <div style="display:flex; gap:8px;">
+        <button class="secondary" onclick="copyFeedEditor()">📋 Copiar</button>
+        <button class="secondary" onclick="restoreHidden()">👁️ Restaurar ocultas</button>
+      </div>
       <div style="display:flex; gap:8px;">
         <button class="secondary" onclick="document.getElementById('feedEditorModal').classList.remove('show')">Cancelar</button>
         <button onclick="saveFeedEditor()">Guardar en la app</button>
@@ -206,7 +219,10 @@
     <input type="hidden" id="editSourceUrl">
     <div class="actions" style="justify-content:space-between;">
       <button class="danger" id="deleteSourceBtn">Eliminar/Ocultar</button>
-      <button onclick="saveEditSource()">Guardar cambios</button>
+      <div style="display:flex; gap:8px;">
+        <button class="secondary" onclick="document.getElementById('editSourceModal').classList.remove('show')">Cancelar</button>
+        <button onclick="saveEditSource()">Guardar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -565,6 +581,53 @@ window.confirmAddSource = () => {
   renderSources();
 };
 
+window.openDiscoverModal = () => {
+  document.getElementById('discoverUrl').value = '';
+  document.getElementById('discoverModal').classList.add('show');
+};
+
+window.doDiscover = async () => {
+  const url = document.getElementById('discoverUrl').value.trim();
+  if (!url) return;
+  setStatus('Buscando feed...');
+  try {
+    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const link = doc.querySelector('link[type="application/rss+xml"], link[type="application/atom+xml"]');
+    
+    if (link && link.href) {
+      const feedUrl = new URL(link.href, url).href;
+      document.getElementById('discoverModal').classList.remove('show');
+      document.getElementById('newSourceUrl').value = feedUrl;
+      document.getElementById('newSourceTitle').value = new URL(url).hostname;
+      document.getElementById('addModal').classList.add('show');
+      setStatus('¡Feed encontrado!', 'ok');
+    } else {
+      // Si no hay link, probamos rutas comunes
+      const commonPaths = ['/feed', '/rss', '/rss.xml', '/feed.xml', '/atom.xml'];
+      for (const p of commonPaths) {
+        const testUrl = new URL(p, url).href;
+        try {
+          const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(testUrl)}`);
+          const text = await r.text();
+          if (text.includes('<rss') || text.includes('<feed')) {
+            document.getElementById('discoverModal').classList.remove('show');
+            document.getElementById('newSourceUrl').value = testUrl;
+            document.getElementById('newSourceTitle').value = new URL(url).hostname;
+            document.getElementById('addModal').classList.add('show');
+            setStatus('¡Feed encontrado!', 'ok');
+            return;
+          }
+        } catch(e) {}
+      }
+      setStatus('No se encontró feed automáticamente.', 'error');
+    }
+  } catch (e) {
+    setStatus('Error al buscar.', 'error');
+  }
+};
+
 window.openFeedEditor = () => {
   const all = [...state.sources, ...state.localSources];
   const text = all.map(s => `${s.url} | ${s.title} | ${s.category || 'General'}`).join('\n');
@@ -577,6 +640,12 @@ window.copyFeedEditor = () => {
   ta.select();
   document.execCommand('copy');
   setStatus('Lista copiada al portapapeles.', 'ok');
+};
+
+window.restoreHidden = () => {
+  localStorage.removeItem('rss_hidden_sources');
+  setStatus('Fuentes ocultas restauradas.', 'ok');
+  loadData();
 };
 
 window.saveFeedEditor = () => {
@@ -595,7 +664,7 @@ window.saveFeedEditor = () => {
   const urls = newSources.map(s => s.url);
   const hidden = JSON.parse(localStorage.getItem('rss_hidden_sources') || '[]');
   state.sources.forEach(s => { if (!urls.includes(s.url)) hidden.push(s.url); });
-  localStorage.setItem('rss_hidden_sources', JSON.stringify([...new Set(hidden)])); // <-- AQUÍ ESTABA EL ERROR
+  localStorage.setItem('rss_hidden_sources', JSON.stringify([...new Set(hidden)]));
   
   document.getElementById('feedEditorModal').classList.remove('show');
   setStatus('Lista de fuentes actualizada localmente.', 'ok');
@@ -671,6 +740,32 @@ document.getElementById('importFile').onchange = async (e) => {
     const savedArr = await dbGetAll(); state.saved = new Map(savedArr.map(x => [x.id, x]));
     setStatus(`Importados ${arr.length} artículos.`, 'ok'); renderSources(); renderList();
   } catch (e) { setStatus('Error importando.', 'error'); }
+  e.target.value = '';
+};
+
+// IMPORTADOR OPML
+document.getElementById('opmlFile').onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await file.text();
+    const doc = new DOMParser().parseFromString(text, 'text/xml');
+    const outlines = doc.querySelectorAll('outline[type="rss"], outline[xmlUrl]');
+    let count = 0;
+    
+    outlines.forEach(o => {
+      const url = o.getAttribute('xmlUrl');
+      if (url && !state.localSources.some(s => s.url === url)) {
+        const title = o.getAttribute('title') || o.getAttribute('text') || url;
+        const category = o.parentElement?.getAttribute('text') || 'General';
+        state.localSources.push({ url, title, category });
+        count++;
+      }
+    });
+    
+    localStorage.setItem(LS_LOCAL_SOURCES, JSON.stringify(state.localSources));
+    setStatus(`Importadas ${count} fuentes desde OPML.`, 'ok');
+    renderSources();
+  } catch (e) { setStatus('Error al leer OPML.', 'error'); }
   e.target.value = '';
 };
 
