@@ -1,0 +1,4 @@
+https://www.xataka.com/feedburner.xml | Xataka | Tecnología
+https://hnrss.org/frontpage | Hacker News | Tecnología
+https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada | El País | Noticias
+https://www.microsiervos.com/index.xml | Microsiervos | Tecnología
